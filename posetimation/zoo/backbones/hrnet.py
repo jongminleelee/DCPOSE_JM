@@ -136,7 +136,7 @@ class HRNet(BaseModel):
                 x1_list.append(x)
         y_list = self.stage2(x1_list)
         
-        stage2_output = y_list[0]
+        #stage2_output = y_list[0]
 
         x2_list = []
         for i in range(self.stage3_cfg['NUM_BRANCHES']):
@@ -146,7 +146,7 @@ class HRNet(BaseModel):
                 x2_list.append(y_list[i])
         y_list = self.stage3(x2_list)
 
-        
+        stage3_output = y_list[0]
 
         x3_list = []
         for i in range(self.stage4_cfg['NUM_BRANCHES']):
@@ -163,7 +163,7 @@ class HRNet(BaseModel):
         if self.use_deconv:
             return y_list[0], rough_pose_heatmaps
         else:
-            return rough_pose_heatmaps, stage2_output 
+            return rough_pose_heatmaps, stage3_output 
 
     def freeze_weight(self):
         for module in self.modules():

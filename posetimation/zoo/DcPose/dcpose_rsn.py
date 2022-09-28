@@ -19,7 +19,7 @@ from ..backbones.hrnet import HRNet
 from utils.common import TRAIN_PHASE
 from utils.utils_registry import MODEL_REGISTRY
 
-'''
+
 class FlowLayer(nn.Module):
 
     def __init__(self, channels=17, bath_size=64, n_iter=10):
@@ -67,7 +67,9 @@ class FlowLayer(nn.Module):
         self.a = nn.Parameter(torch.FloatTensor([self.a]))
 
         self.conv = nn.Conv2d(channels*2, channels, kernel_size=1, stride=1, padding=0)
-        self.bn = nn.BatchNorm2d(channels)
+        
+        # 수정
+        self.bn = nn.BatchNorm2d(channels*2)
         self.relu = nn.ReLU(inplace=True)
 
 
@@ -226,9 +228,9 @@ class FlowLayer(nn.Module):
          
         
         flow = torch.cat([u1,u2], dim=1)
-        flow = self.conv(flow)
+        #flow = self.conv(flow)
         flow = self.bn(flow)
-        flow = self.relu(flow)
+        #flow = self.relu(flow)
         
         
         #print(u1)
@@ -237,7 +239,7 @@ class FlowLayer(nn.Module):
         return flow
         # 조인트별로 x방향과 y방향 motion estimator이다. 
         # bath, channel 
-'''
+
 
 @MODEL_REGISTRY.register()
 class DcPose_RSN(BaseModel):
@@ -334,8 +336,14 @@ class DcPose_RSN(BaseModel):
         #                                                    prf_ptm_combine_basicblock_num)
 
 
+        self.p_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
+        self.n_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
+
+
         ###### motion_module #######
-        #self.motion_layer = FlowLayer(17,8)
+        self.motion_layer1 = FlowLayer(48,8)
+        
+        self.motion_layer2 = FlowLayer(48,8)
 
 
 
@@ -388,11 +396,11 @@ class DcPose_RSN(BaseModel):
         # 네트워크해서 채널방향으로 쪼개고 나서 그것을 batchsize방향으로 합치는 것일까?
         rough_heatmaps = self.rough_pose_estimation_net(torch.cat(x.split(num_color_channels, dim=1), 0))
         
-        hrnet_stage2_output = rough_heatmaps[1]
+        hrnet_stage3_output = rough_heatmaps[1]
         rough_heatmaps = rough_heatmaps[0]
         
-        print(rough_heatmaps.shape)
-        print(hrnet_stage2_output.shape)
+        #print(rough_heatmaps.shape)
+        #print(hrnet_stage3_output.shape)
         
         true_batch_size = int(rough_heatmaps.shape[0] / 3)
 
@@ -400,11 +408,39 @@ class DcPose_RSN(BaseModel):
         current_rough_heatmaps, previous_rough_heatmaps, next_rough_heatmaps = rough_heatmaps.split(true_batch_size, dim=0)
 
 
+        # ===================================================================================
 
-        # motion_module_flowlayer 
-        #flow = self.motion_layer(current_rough_heatmaps,next_rough_heatmaps)
+        #true_batch_size2 = int(rough_heatmaps.shape[0] / 3)
+
+        # hrnet stage3 출력값을 활용하여 flowlayer 작업을 진행을 함.
+        # 기본적으로 stage3_output => batchsize, 48, 96, 72  형태를 가지고 있음.
+        current_hrnet_stage3_output, previous_hrnet_stage3_output, next_hrnet_stage3_output = hrnet_stage3_output.split(true_batch_size, dim=0)
 
 
+        # motion_module_flowlayer
+        # 48채널 * 2 형태로 출력이 됨.
+        flow_p_c = self.motion_layer1(previous_hrnet_stage3_output,current_hrnet_stage3_output)
+        flow_n_c = self.motion_layer2(next_hrnet_stage3_output,current_hrnet_stage3_output)
+        
+        # 48채
+        stage3_p_c_diff = current_hrnet_stage3_output - previous_hrnet_stage3_output
+        stage3_n_c_diff = current_hrnet_stage3_output - next_hrnet_stage3_output
+
+        p_c_relation_output = torch.cat([previous_rough_heatmaps,flow_p_c,stage3_p_c_diff], dim=1)
+        n_c_relation_output = torch.cat([next_rough_heatmaps,flow_n_c,stage3_n_c_diff], dim=1)
+        
+        p_c_heatmap_output = self.p_c_heatmap_output_layer(p_c_relation_output)
+        n_c_heatmap_output = self.n_c_heatmap_output_layer(n_c_relation_output)
+        
+        #print(p_c_heatmap_output.shape)
+        #print(n_c_heatmap_output.shape)
+
+        # jongmin 코드 기반으로 작업된 부분이다. 
+        support_heatmaps = torch.cat([current_rough_heatmaps,p_c_heatmap_output*0.5,n_c_heatmap_output*0.5], dim=1)
+        support_heatmaps = self.support_temporal_fuse(support_heatmaps).cuda()       
+        
+          
+        '''          
         # Difference A and Difference B
         diff_A = current_rough_heatmaps - previous_rough_heatmaps
         diff_B = current_rough_heatmaps - next_rough_heatmaps
@@ -454,7 +490,7 @@ class DcPose_RSN(BaseModel):
         # 해당 위 layer는 3*3 stack layer 부분이다. 
         # 이 때 왜? ptm의 결과를 
         support_heatmaps = self.support_temporal_fuse(support_heatmaps).cuda()
-
+        '''
         # 3*3 conv stack conv 처리 !!
         prf_ptm_combine_featuremaps = self.offset_mask_combine_conv(torch.cat([support_heatmaps], dim=1))
         #prf_ptm_combine_featuremaps = self.offset_mask_combine_conv(torch.cat([dif_heatmaps, support_heatmaps], dim=1))
@@ -517,7 +553,9 @@ class DcPose_RSN(BaseModel):
         # jongmin add code    
         # output_heatmaps : motion gt와 비교
         # output_heatmaps2 : origin gt와 비교
-        return output_heatmaps #, output_heatmaps2
+        
+        # p->c, n->c 관련된 output도 추가한다. 각각 gt와 비교해서 loss를 구한다.
+        return output_heatmaps, p_c_heatmap_output, n_c_heatmap_output
 
     def init_weights(self):
         logger = logging.getLogger(__name__)
