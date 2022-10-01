@@ -1,0 +1,24 @@
+2022-10-01 11:50:07,204 - engine.defaults.base - INFO - => Executor Operating Parameter Table: 
+[31m| Key                     | Value                                                                                                                                                                              |
+|:------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Phase                   | train                                                                                                                                                                              |
+| Log File                | /home/jongmin2/DCPose/output11_jm_flow_/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/log/train-2022_10_01_11.log |
+| Checkpoint Folder       | /home/jongmin2/DCPose/output11_jm_flow_/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/checkpoints                 |
+| Tensorboard_save_folder | /home/jongmin2/DCPose/output11_jm_flow_/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/tensorboard                 |[0m
+2022-10-01 11:50:07,205 - engine.defaults.trainer - INFO - Set the random seed to 8888
+2022-10-01 11:50:20,389 - datasets.zoo.base - INFO - => Datasets Parameters Info : 
+[35m| Dataset parameters   | Value   |
+|:---------------------|:--------|
+| BBOX_ENLARGE_FACTOR  | 1.25    |
+| NUM_JOINTS           | 17      |[0m
+2022-10-01 11:50:20,389 - datasets.zoo.base - INFO - => Datasets Samples Info : 
+[35m| Dataset_Name   | Num of samples   |
+|:---------------|:-----------------|
+| PoseTrack18    | 97306            |[0m
+2022-10-01 11:50:20,993 - posetimation.zoo.DcPose.dcpose_rsn - INFO - ###### MODEL DcPose_RSN Hyper Parameters ##########
+2022-10-01 11:50:20,993 - posetimation.zoo.DcPose.dcpose_rsn - INFO - OrderedDict([('k', 3), ('prf_basicblock_num', 2), ('prf_inner_ch', 34), ('ptm_basicblock_num', 1), ('ptm_inner_ch', 17), ('prf_ptm_combine_basicblock_num', 2), ('prf_ptm_combine_inner_ch', 64)])
+2022-10-01 11:50:25,710 - posetimation.zoo.DcPose.dcpose_rsn - INFO - => loading pretrained model /home/jongmin2/DCPose/DcPose_supp_files/pretrained_models/pretrained_coco_model.pth
+2022-10-01 11:50:26,179 - posetimation.optimizer.scheduler - INFO - => Use MultiStepLR. MILESTONES : [4, 8, 12, 16]. GAMMA : 0.99. last_epoch : -1
+2022-10-01 11:50:26,302 - engine.defaults.trainer - WARNING - => no checkpoint file available to resume
+2022-10-01 11:50:26,303 - engine.defaults.trainer - INFO - => Start train epoch 0
+2022-10-01 11:51:11,060 - engine.core.function - INFO - Epoch: [0][0/2028]	Time 43.747s (43.747s)	Speed 1.1 samples/s	Data 24.397s (24.397s)	Loss 1.46733 (1.46733)	Accuracy 0.011 (0.011)	

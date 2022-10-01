@@ -336,8 +336,8 @@ class DcPose_RSN(BaseModel):
         #                                                    prf_ptm_combine_basicblock_num)
 
 
-        self.p_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
-        self.n_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
+        self.p_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(113, 17, 3)
+        self.n_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(113, 17, 3)
 
 
         ###### motion_module #######
@@ -423,11 +423,13 @@ class DcPose_RSN(BaseModel):
         flow_n_c = self.motion_layer2(next_hrnet_stage3_output,current_hrnet_stage3_output)
         
         # 48채
-        stage3_p_c_diff = current_hrnet_stage3_output - previous_hrnet_stage3_output
-        stage3_n_c_diff = current_hrnet_stage3_output - next_hrnet_stage3_output
+        # 오히려 네트워크에 이미 정보를 갖춘 데이터가 있고, 현재 데이터가 아닌 다른 데이터를 통해서 만드는 방식이기 때문에
+        # 현재 - 과거, 현재 - 미래는 의미가없다고 생각해서 주석처리를 함.
+        # stage3_p_c_diff = current_hrnet_stage3_output - previous_hrnet_stage3_output
+        # stage3_n_c_diff = current_hrnet_stage3_output - next_hrnet_stage3_output
 
-        p_c_relation_output = torch.cat([previous_rough_heatmaps,flow_p_c,stage3_p_c_diff], dim=1)
-        n_c_relation_output = torch.cat([next_rough_heatmaps,flow_n_c,stage3_n_c_diff], dim=1)
+        p_c_relation_output = torch.cat([previous_rough_heatmaps,flow_p_c], dim=1)
+        n_c_relation_output = torch.cat([next_rough_heatmaps,flow_n_c], dim=1)
         
         p_c_heatmap_output = self.p_c_heatmap_output_layer(p_c_relation_output)
         n_c_heatmap_output = self.n_c_heatmap_output_layer(n_c_relation_output)
@@ -436,7 +438,8 @@ class DcPose_RSN(BaseModel):
         #print(n_c_heatmap_output.shape)
 
         # jongmin 코드 기반으로 작업된 부분이다. 
-        support_heatmaps = torch.cat([current_rough_heatmaps,p_c_heatmap_output*0.5,n_c_heatmap_output*0.5], dim=1)
+        # heatmap을 1:1:1로 합쳐줌!!
+        support_heatmaps = torch.cat([current_rough_heatmaps,p_c_heatmap_output,n_c_heatmap_output], dim=1)
         support_heatmaps = self.support_temporal_fuse(support_heatmaps).cuda()       
         
           

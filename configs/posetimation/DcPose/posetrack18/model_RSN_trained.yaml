@@ -2,7 +2,7 @@ _BASE_: "../Base_PoseTrack18.yaml"
 EXPERIMENT_NAME: 'DCPose_Network_Model_RSN'
 WORKERS: 16
 GPUS: (0,1)
-OUTPUT_DIR: './output9_PTM_gt/PE/DcPose/'
+OUTPUT_DIR: './output10_jm_flow_/PE/DcPose/'
 CUDNN:
   BENCHMARK: true
   DETERMINISTIC: true
@@ -41,10 +41,10 @@ TRAIN:
   BATCH_SIZE_PER_GPU: 64
 VAL:
   BATCH_SIZE_PER_GPU: 128
-  MODEL_FILE: "/home/jongmin2/DCPose/output9_PTM_gt/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/checkpoints/epoch_23_state.pth"
+  MODEL_FILE: "/home/jongmin2/DCPose/output10_jm_flow_/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/checkpoints/epoch_20_state.pth"
 TEST:
   BATCH_SIZE_PER_GPU: 128
-  MODEL_FILE: "/home/jongmin2/DCPose/output9_PTM_gt/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/checkpoints/epoch_23_state.pth"
+  MODEL_FILE: "/home/jongmin2/DCPose/output10_jm_flow_/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/checkpoints/epoch_20_state.pth"
 DEBUG:
   VIS_SKELETON: false
   VIS_BBOX: false
