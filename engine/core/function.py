@@ -60,6 +60,7 @@ class CommonFunction(BaseFunction):
         acc2 = AverageMeter()
         acc3 = AverageMeter()
         acc4 = AverageMeter()
+        acc5 = AverageMeter()
         # switch to train mode
         model.train()
 
@@ -92,9 +93,10 @@ class CommonFunction(BaseFunction):
                 pred_heatmaps = outputs[0]
                 sub1_heatmaps = outputs[1]
                 sub2_heatmaps = outputs[2]
+                sub3_p_heatmaps = outputs[3]
 
                 loss = self.criterion(pred_heatmaps, target_heatmaps, target_heatmaps_weight)
-                for sub_heatmaps in outputs[1:]:
+                for sub_heatmaps in outputs[1:3]:
                     #origin gt loss calc
                     #print("p=>c, n=>c heatmap based ..............")
                     loss += self.criterion(sub_heatmaps, target_heatmaps, target_heatmaps_weight)
@@ -167,6 +169,9 @@ class CommonFunction(BaseFunction):
 
             _, avg_acc4, cnt4, _ = accuracy(pre_custom_heatmaps.detach().cpu().numpy(), target_heatmaps.detach().cpu().numpy())
             acc4.update(avg_acc4, cnt4)
+            
+            _, avg_acc5, cnt5, _ = accuracy(sub3_p_heatmaps.detach().cpu().numpy(), target_heatmaps.detach().cpu().numpy())
+            acc5.update(avg_acc5, cnt5)
 
             # measure elapsed time
             batch_time.update(time.time() - end)
@@ -182,9 +187,10 @@ class CommonFunction(BaseFunction):
                       'Accuracy {acc.val:.3f} ({acc.avg:.3f})\t'\
                       'Accuracy {acc2.val:.3f} ({acc2.avg:.3f})\t'\
                       'Accuracy {acc3.val:.3f} ({acc3.avg:.3f})\t'\
-                      'Accuracy {acc4.val:.3f} ({acc4.avg:.3f})\t'.format(epoch, iter_step, self.max_iter_num, batch_time=batch_time,
+                      'Accuracy_custom {acc4.val:.3f} ({acc4.avg:.3f})\t'\
+                      'Accuracy_p {acc5.val:.3f} ({acc5.avg:.3f})\t'.format(epoch, iter_step, self.max_iter_num, batch_time=batch_time,
                                                                         speed=input_x.size(0) / batch_time.val,
-                                                                        data_time=data_time, loss=losses, acc=acc, acc2=acc2, acc3=acc3, acc4=acc4)
+                                                                        data_time=data_time, loss=losses, acc=acc, acc2=acc2, acc3=acc3, acc4=acc4, acc5=acc5)
 
                 logger.info(msg)
 

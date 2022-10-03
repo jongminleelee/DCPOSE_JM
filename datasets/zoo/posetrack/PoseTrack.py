@@ -129,15 +129,14 @@ class PoseTrack(VideoDataset):
             is_posetrack18 = False
 
         current_idx = int(osp.basename(image_file_path).replace('.jpg', ''))
-
         if self.distance_whole_otherwise_segment:
             farthest_distance = self.distance
-            prev_delta_range = range(1, min((current_idx + 1) if is_posetrack18 else current_idx, farthest_distance))
-            next_delta_range = range(1, min((num_frames - current_idx) if is_posetrack18 else (num_frames - current_idx + 1),
+            prev_delta_range = range(2, min((current_idx + 1) if is_posetrack18 else current_idx, farthest_distance))
+            next_delta_range = range(2, min((num_frames - current_idx) if is_posetrack18 else (num_frames - current_idx + 1),
                                             farthest_distance))
         else:
-            prev_delta_range = range(1, min(current_idx + 1 if is_posetrack18 else current_idx, self.previous_distance))
-            next_delta_range = range(1, min((num_frames - current_idx) if is_posetrack18 else (num_frames - current_idx + 1),
+            prev_delta_range = range(2, min(current_idx + 1 if is_posetrack18 else current_idx, self.previous_distance))
+            next_delta_range = range(2, min((num_frames - current_idx) if is_posetrack18 else (num_frames - current_idx + 1),
                                             self.next_distance))
 
         prev_delta_range = list(prev_delta_range)
