@@ -2,6 +2,8 @@
 # -*- coding:utf8 -*-
 import time
 import torch
+import torch.nn.functional as f
+
 import numpy as np
 import os.path as osp
 import logging
@@ -55,6 +57,9 @@ class CommonFunction(BaseFunction):
         data_time = AverageMeter()
         losses = AverageMeter()
         acc = AverageMeter()
+        acc2 = AverageMeter()
+        acc3 = AverageMeter()
+        acc4 = AverageMeter()
         # switch to train mode
         model.train()
 
@@ -85,18 +90,63 @@ class CommonFunction(BaseFunction):
 
             if isinstance(outputs, list) or isinstance(outputs, tuple):
                 pred_heatmaps = outputs[0]
-                #motion gt loss calc
-                #print("motion gt loss calc")
+                sub1_heatmaps = outputs[1]
+                sub2_heatmaps = outputs[2]
+
                 loss = self.criterion(pred_heatmaps, target_heatmaps, target_heatmaps_weight)
-                for pred_heatmaps in outputs[1:]:
+                for sub_heatmaps in outputs[1:]:
                     #origin gt loss calc
                     #print("p=>c, n=>c heatmap based ..............")
-                    loss += self.criterion(pred_heatmaps, target_heatmaps, target_heatmaps_weight)
+                    loss += self.criterion(sub_heatmaps, target_heatmaps, target_heatmaps_weight)
             else:
                 #print("inference : ")
                 pred_heatmaps = outputs
                 #print(pred_heatmaps.size())
                 loss = self.criterion(pred_heatmaps, target_heatmaps, target_heatmaps_weight)
+
+            # ============================================================ heatmap의 max갓을 기준으로 해서 과거/현재/미래의 프레임의 값을 구해주는 코드를 작성함... 한계가 있음.
+            
+            # 만약 현재 값에서 0.7이하인 경우 해당 값을 사용하는 방식을 취한다면 어떻게 될 것인가? 
+            # 
+
+            pre_reshape = torch.reshape(pred_heatmaps,(32,17,-1))
+            pre_max,_ = torch.max(pre_reshape, dim=2)
+            
+            #print(pre_max)
+            
+            
+            # 확률 분포로 0.7보다 작게 나오면 True 크게 나오면 false 
+            # True인 부분을 0으로 대체한다. 
+            index_t_1 = pre_max>=0.4
+            index_t_0 = pre_max<0.4 
+            
+            pre_max[index_t_1] = 1
+            pre_max[index_t_0] = 0    
+            
+            sub1_reshape = torch.reshape(sub1_heatmaps,(32,17,-1))
+            sub1_max,_ = torch.max(sub1_reshape, dim=2)     
+                       
+            sub2_reshape = torch.reshape(sub2_heatmaps,(32,17,-1))
+            sub2_max,_ = torch.max(sub2_reshape, dim=2)     
+            
+            sub1_max[index_t_1] = 0
+            sub1_max[index_t_0&(sub1_max>=sub2_max)] = 1
+            sub1_max[index_t_0&(sub1_max<sub2_max)] = 0
+            
+            sub2_max[index_t_1] = 0  
+            sub2_max[index_t_0&(sub2_max>=sub1_max)] = 1
+            sub2_max[index_t_0&(sub2_max<sub1_max)] = 0                 
+            
+            pre_max = pre_max.unsqueeze(2).unsqueeze(3)
+            pre_max = pre_max.repeat(1,1,96,72)
+
+            sub1_max = sub1_max.unsqueeze(2).unsqueeze(3)
+            sub1_max = sub1_max.repeat(1,1,96,72)            
+
+            sub2_max = sub2_max.unsqueeze(2).unsqueeze(3)
+            sub2_max = sub2_max.repeat(1,1,96,72) 
+            
+            pre_custom_heatmaps =  pre_max*pred_heatmaps + sub1_max*sub1_heatmaps + sub2_max*sub2_heatmaps
 
             # compute gradient and do update step
             optimizer.zero_grad()
@@ -108,20 +158,33 @@ class CommonFunction(BaseFunction):
 
             _, avg_acc, cnt, _ = accuracy(pred_heatmaps.detach().cpu().numpy(), target_heatmaps.detach().cpu().numpy())
             acc.update(avg_acc, cnt)
+            
+            _, avg_acc2, cnt2, _ = accuracy(sub1_heatmaps.detach().cpu().numpy(), target_heatmaps.detach().cpu().numpy())
+            acc2.update(avg_acc2, cnt2)
+
+            _, avg_acc3, cnt3, _ = accuracy(sub2_heatmaps.detach().cpu().numpy(), target_heatmaps.detach().cpu().numpy())
+            acc3.update(avg_acc3, cnt3)
+
+            _, avg_acc4, cnt4, _ = accuracy(pre_custom_heatmaps.detach().cpu().numpy(), target_heatmaps.detach().cpu().numpy())
+            acc4.update(avg_acc4, cnt4)
 
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
-            if iter_step % self.cfg.PRINT_FREQ == 0 or iter_step >= self.max_iter_num - 1:
+            #if iter_step % self.cfg.PRINT_FREQ == 0 or iter_step >= self.max_iter_num - 1:
+            if iter_step%5 == 0:
 
                 msg = 'Epoch: [{0}][{1}/{2}]\t' \
                       'Time {batch_time.val:.3f}s ({batch_time.avg:.3f}s)\t' \
                       'Speed {speed:.1f} samples/s\t' \
                       'Data {data_time.val:.3f}s ({data_time.avg:.3f}s)\t' \
                       'Loss {loss.val:.5f} ({loss.avg:.5f})\t' \
-                      'Accuracy {acc.val:.3f} ({acc.avg:.3f})\t'.format(epoch, iter_step, self.max_iter_num, batch_time=batch_time,
+                      'Accuracy {acc.val:.3f} ({acc.avg:.3f})\t'\
+                      'Accuracy {acc2.val:.3f} ({acc2.avg:.3f})\t'\
+                      'Accuracy {acc3.val:.3f} ({acc3.avg:.3f})\t'\
+                      'Accuracy {acc4.val:.3f} ({acc4.avg:.3f})\t'.format(epoch, iter_step, self.max_iter_num, batch_time=batch_time,
                                                                         speed=input_x.size(0) / batch_time.val,
-                                                                        data_time=data_time, loss=losses, acc=acc)
+                                                                        data_time=data_time, loss=losses, acc=acc, acc2=acc2, acc3=acc3, acc4=acc4)
 
                 logger.info(msg)
 
