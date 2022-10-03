@@ -55,6 +55,9 @@ class CommonFunction(BaseFunction):
         data_time = AverageMeter()
         losses = AverageMeter()
         acc = AverageMeter()
+        acc2 = AverageMeter()
+        acc_p_c = AverageMeter()
+        acc_n_c = AverageMeter()
         # switch to train mode
         model.train()
 
@@ -88,6 +91,11 @@ class CommonFunction(BaseFunction):
                 #motion gt loss calc
                 #print("motion gt loss calc")
                 loss = self.criterion(pred_heatmaps, target_heatmaps, target_heatmaps_weight)
+                
+                pred_heatmaps_add = outputs[1]
+                pred_heatmaps_p_c = outputs[2]
+                pred_heatmaps_n_C = outputs[3]
+                
                 for model_output in outputs[2:]:
                     #origin gt loss calc
                     #print("p=>c, n=>c heatmap based ..............")
@@ -108,6 +116,15 @@ class CommonFunction(BaseFunction):
 
             _, avg_acc, cnt, _ = accuracy(pred_heatmaps.detach().cpu().numpy(), target_heatmaps.detach().cpu().numpy())
             acc.update(avg_acc, cnt)
+            
+            _, avg_acc2, cnt2, _ = accuracy(pred_heatmaps_add.detach().cpu().numpy(), target_heatmaps.detach().cpu().numpy())
+            acc2.update(avg_acc2, cnt2)
+
+            _, avg_acc3, cnt3, _ = accuracy(pred_heatmaps_p_c.detach().cpu().numpy(), target_heatmaps.detach().cpu().numpy())
+            acc_p_c.update(avg_acc3, cnt3)
+
+            _, avg_acc4, cnt4, _ = accuracy(pred_heatmaps_n_C.detach().cpu().numpy(), target_heatmaps.detach().cpu().numpy())
+            acc_n_c.update(avg_acc4, cnt4)
 
             # measure elapsed time
             batch_time.update(time.time() - end)
@@ -119,15 +136,19 @@ class CommonFunction(BaseFunction):
                       'Speed {speed:.1f} samples/s\t' \
                       'Data {data_time.val:.3f}s ({data_time.avg:.3f}s)\t' \
                       'Loss {loss.val:.5f} ({loss.avg:.5f})\t' \
-                      'Accuracy {acc.val:.3f} ({acc.avg:.3f})\t'.format(epoch, iter_step, self.max_iter_num, batch_time=batch_time,
+                      'Accuracy {acc.val:.3f} ({acc.avg:.3f})\t'\
+                      'Accuracy2 {acc2.val:.3f} ({acc2.avg:.3f})\t'\
+                      'Accuracy_p_c {acc_p_c.val:.3f} ({acc_p_c.avg:.3f})\t'\
+                      'Accuracy_n_C {acc_n_c.val:.3f} ({acc_n_c.avg:.3f})\t'.format(epoch, iter_step, self.max_iter_num, batch_time=batch_time,
                                                                         speed=input_x.size(0) / batch_time.val,
-                                                                        data_time=data_time, loss=losses, acc=acc)
+                                                                        data_time=data_time, loss=losses, acc=acc, acc2=acc2, acc_p_c=acc_p_c ,acc_n_c=acc_n_c)
 
                 logger.info(msg)
 
             # For Tensorboard
             self.tb_writer.add_scalar('train_loss', losses.val, self.global_steps)
             self.tb_writer.add_scalar('train_acc', acc.val, self.global_steps)
+            self.tb_writer.add_scalar('train_acc2_add', acc2.val, self.global_steps)
             self.global_steps += 1
 
         tb_writer_dict["global_steps"] = self.global_steps
