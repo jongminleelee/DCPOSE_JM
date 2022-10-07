@@ -20,7 +20,7 @@ from utils.utils_image import read_image
 from utils.utils_folder import create_folder
 from utils.utils_registry import DATASET_REGISTRY
 from datasets.process import get_affine_transform, fliplr_joints, exec_affine_transform, generate_heatmaps, half_body_transform, \
-    convert_data_to_annorect_struct, generate_heatmaps_origin
+    convert_data_to_annorect_struct
 
 from datasets.transforms import build_transforms
 from datasets.zoo.base import VideoDataset
@@ -94,30 +94,15 @@ class PoseTrack(VideoDataset):
 
     def __getitem__(self, item_index):
         data_item = copy.deepcopy(self.data[item_index])
-        
         if self.model_input_type == 'single_frame':
             return self._get_single_frame(data_item)
-            
         elif self.model_input_type == 'spatiotemporal_window':
             return self._get_spatiotemporal_window(data_item)
 
     def _get_spatiotemporal_window(self, data_item):
         filename = data_item['filename']
-         
         img_num = data_item['imgnum']
         image_file_path = data_item['image']
-        
-        #print(image_file_path)
-        #print("----------------------------------------------") 
-        
-        # posetrack18 기준 json 
-        # "file_name": "images/val/009478_mpii_test/000000.jpg"     
-        # opticalflow_image root path: /home/dataset/posetrack/posetrack2018_optical 
-        optical_root_path = "/home/dataset/posetrack/posetrack2018_opt"   
-        
-        if self.train :
-            origin_path = data_item['origin_path']
-        
         num_frames = data_item['nframes']
         data_numpy = read_image(image_file_path)
 
@@ -130,14 +115,15 @@ class PoseTrack(VideoDataset):
 
         current_idx = int(osp.basename(image_file_path).replace('.jpg', ''))
 
+# -------------------------------------------------- Frame loader ----------------------------------------------------
         if self.distance_whole_otherwise_segment:
             farthest_distance = self.distance
-            prev_delta_range = range(1, min((current_idx + 1) if is_posetrack18 else current_idx, farthest_distance))
-            next_delta_range = range(1, min((num_frames - current_idx) if is_posetrack18 else (num_frames - current_idx + 1),
+            prev_delta_range = range(2, min((current_idx + 1) if is_posetrack18 else current_idx, farthest_distance))
+            next_delta_range = range(2, min((num_frames - current_idx) if is_posetrack18 else (num_frames - current_idx + 1),
                                             farthest_distance))
         else:
-            prev_delta_range = range(1, min(current_idx + 1 if is_posetrack18 else current_idx, self.previous_distance))
-            next_delta_range = range(1, min((num_frames - current_idx) if is_posetrack18 else (num_frames - current_idx + 1),
+            prev_delta_range = range(2, min(current_idx + 1 if is_posetrack18 else current_idx, self.previous_distance))
+            next_delta_range = range(2, min((num_frames - current_idx) if is_posetrack18 else (num_frames - current_idx + 1),
                                             self.next_distance))
 
         prev_delta_range = list(prev_delta_range)
@@ -147,7 +133,6 @@ class PoseTrack(VideoDataset):
         if len(prev_delta_range) == 0:
             prev_delta = 0
             margin_left = 1
-            
         else:
             if self.random_aux_frame:
                 prev_delta = random.choice(prev_delta_range)
@@ -166,41 +151,21 @@ class PoseTrack(VideoDataset):
 
             margin_right = next_delta
 
-        #print("----------------")
-        #print(prev_delta)
-        #print(next_delta)
-        #print(current_idx)
-        
-        if self.train:
-            if prev_delta == 0 :
-                # pre_image가 0이라는 말은 .. 현재 이미지 기준으로 전 프레임이 없다는 의미
-                optical_image_existed = False
-            else :
-                optical_image_existed = True     
-    
-            # optical_code
-            if optical_image_existed:
-
-                optical_origin = '/00' + origin_path.split('/')[-1]
-                optical_origin_path = origin_path.split('/')[0:-1]
-                optical_origin_path = '/'.join(optical_origin_path)
-                optical_origin_path = optical_origin_path+optical_origin
-                
-                optical_path = osp.join(optical_root_path, optical_origin_path)
-                
-                #optical_path = osp.join(optical_root_path, origin_path)
-                #print("optical_path : {}".format(optical_path))
-                optical_image = read_image(optical_path)
-                #print("optical image -> read image complete")
-            else:
-                optical_image = None
-            #print("optical image -> none")
-        #print(prev_delta)
         prev_idx = current_idx - prev_delta
         next_idx = current_idx + next_delta
 
         prev_image_file = osp.join(osp.dirname(image_file_path), str(prev_idx).zfill(zero_fill) + '.jpg')
         next_image_file = osp.join(osp.dirname(image_file_path), str(next_idx).zfill(zero_fill) + '.jpg')
+
+        # 기본적으로 2frame 앞/뒤로 받고
+        # 2frame 앞 뒤로 없는 경우에는 모든 프레임을 현재 프레임으로 받아서 처리를 한다. 
+        # 따라서 앞/뒤 2frame이 있는 경우에는, 앞/뒤 1frame은 무조건 있게 된다. 
+        prev_idx_2 = current_idx - prev_delta + 1
+        next_idx_2 = current_idx + next_delta - 1
+
+        prev_2_image_file = osp.join(osp.dirname(image_file_path), str(prev_idx_2).zfill(zero_fill) + '.jpg')
+        next_2_image_file = osp.join(osp.dirname(image_file_path), str(next_idx_2).zfill(zero_fill) + '.jpg')
+
 
         # checking for files existence
         if not osp.exists(prev_image_file):
@@ -215,11 +180,27 @@ class PoseTrack(VideoDataset):
         data_numpy_prev = read_image(prev_image_file)
         data_numpy_next = read_image(next_image_file)
 
+        # 2frames more // 22.09.19 inpyo
+        if not osp.exists(prev_2_image_file):
+            error_msg = "Can not find image :{}".format(prev_2_image_file)
+            self.logger.error(error_msg)
+            raise Exception(error_msg)
+        if not osp.exists(next_2_image_file):
+            error_msg = "Can not find image :{}".format(next_2_image_file)
+            self.logger.error(error_msg)
+            raise Exception(error_msg)
+
+        data_numpy_prev_2 = read_image(prev_2_image_file)
+        data_numpy_next_2 = read_image(next_2_image_file)
+
         if self.color_rgb:
             # cv2 read_image  color channel is BGR
             data_numpy = cv2.cvtColor(data_numpy, cv2.COLOR_BGR2RGB)
             data_numpy_prev = cv2.cvtColor(data_numpy_prev, cv2.COLOR_BGR2RGB)
             data_numpy_next = cv2.cvtColor(data_numpy_next, cv2.COLOR_BGR2RGB)
+            # 2frames more // 22.09.19 inpyo
+            data_numpy_prev_2 = cv2.cvtColor(data_numpy_prev_2, cv2.COLOR_BGR2RGB)
+            data_numpy_next_2 = cv2.cvtColor(data_numpy_next_2, cv2.COLOR_BGR2RGB)
 
         if data_numpy is None:
             self.logger.error('=> fail to read {}'.format(image_file_path))
@@ -230,6 +211,13 @@ class PoseTrack(VideoDataset):
         if data_numpy_next is None:
             self.logger.error('=> NEXT SUP: fail to read {}'.format(next_image_file))
             raise ValueError('NEXT SUP: Fail to read {}'.format(next_image_file))
+        # 2frames more // 22.09.19 inpyo
+        if data_numpy_prev_2 is None:
+            self.logger.error('=> PREV SUP: fail to read {}'.format(prev_2_image_file))
+            raise ValueError('PREV SUP: Fail to read {}'.format(prev_2_image_file))
+        if data_numpy_next_2 is None:
+            self.logger.error('=> NEXT SUP: fail to read {}'.format(next_2_image_file))
+            raise ValueError('NEXT SUP: Fail to read {}'.format(next_2_image_file))
 
         joints = data_item['joints_3d']
         joints_vis = data_item['joints_3d_vis']
@@ -259,13 +247,9 @@ class PoseTrack(VideoDataset):
                 data_numpy = data_numpy[:, ::-1, :]
                 data_numpy_prev = data_numpy_prev[:, ::-1, :]
                 data_numpy_next = data_numpy_next[:, ::-1, :]
-
-                if self.train:
-                    if optical_image is None:
-                        pass
-                    else:
-                        optical_image = optical_image[:, ::-1, :]
-
+                # 2frames more // 22.09.19 inpyo
+                data_numpy_prev_2 = data_numpy_prev_2[:, ::-1, :]
+                data_numpy_next_2 = data_numpy_next_2[:, ::-1, :]
 
                 joints, joints_vis = fliplr_joints(
                     joints, joints_vis, data_numpy.shape[1], self.flip_pairs)
@@ -276,22 +260,19 @@ class PoseTrack(VideoDataset):
         input_x = cv2.warpAffine(data_numpy, trans, (int(self.image_size[0]), int(self.image_size[1])), flags=cv2.INTER_LINEAR)
         input_prev = cv2.warpAffine(data_numpy_prev, trans, (int(self.image_size[0]), int(self.image_size[1])), flags=cv2.INTER_LINEAR)
         input_next = cv2.warpAffine(data_numpy_next, trans, (int(self.image_size[0]), int(self.image_size[1])), flags=cv2.INTER_LINEAR)
+        # 2frames more // 22.09.19 inpyo
+        input_prev_2 = cv2.warpAffine(data_numpy_prev_2, trans, (int(self.image_size[0]), int(self.image_size[1])),
+                                    flags=cv2.INTER_LINEAR)
+        input_next_2 = cv2.warpAffine(data_numpy_next_2, trans, (int(self.image_size[0]), int(self.image_size[1])),
+                                    flags=cv2.INTER_LINEAR)
 
-        current_image_numpy = input_x.copy()
-
-        # optical_image
-        # 원본이미지에 맞추어서 회전, scale 등에 대한 작업 진행.
-        if self.train : 
-            if optical_image is None:
-                pass
-            else:
-                optical_image = cv2.warpAffine(optical_image, trans, (int(self.image_size[0]), int(self.image_size[1])), flags=cv2.INTER_LINEAR)        
-        
-        
         if self.transform:
             input_x = self.transform(input_x)
             input_prev = self.transform(input_prev)
             input_next = self.transform(input_next)
+            # 2frames more // 22.09.19 inpyo
+            input_prev_2 = self.transform(input_prev_2)
+            input_next_2 = self.transform(input_next_2)
 
         # joint transform like image
         for i in range(self.num_joints):
@@ -305,33 +286,11 @@ class PoseTrack(VideoDataset):
                 joints_vis[index] = [0, 0, 0]
         # target_heatmaps, target_heatmaps_weight = self._generate_target(joints, joints_vis, self.heatmap_size, self.num_joints)
 
-        if self.train:
-            target_heatmaps, target_heatmaps_weight = generate_heatmaps(joints, joints_vis, self.sigma, self.image_size, self.heatmap_size,
-                                                                    self.num_joints, optical_image,
+        target_heatmaps, target_heatmaps_weight = generate_heatmaps(joints, joints_vis, self.sigma, self.image_size, self.heatmap_size,
+                                                                    self.num_joints,
                                                                     use_different_joints_weight=self.use_different_joints_weight,
                                                                     joints_weight=self.joints_weight)
-
-            target_heatmaps2, target_heatmaps_weight2 = generate_heatmaps_origin(joints, joints_vis, self.sigma, self.image_size, self.heatmap_size,
-                                                                    self.num_joints, use_different_joints_weight=self.use_different_joints_weight,
-                                                                    joints_weight=self.joints_weight)                                                                    
-                                                                    
-        else:
-            optical_image = None
-            target_heatmaps, target_heatmaps_weight = generate_heatmaps(joints, joints_vis, self.sigma, self.image_size, self.heatmap_size,
-                                                                    self.num_joints, optical_image,
-                                                                    use_different_joints_weight=self.use_different_joints_weight,
-                                                                    joints_weight=self.joints_weight)    
-            target_heatmaps2 = target_heatmaps.copy()
-            target_heatmaps_weight2 = target_heatmaps_weight.copy()                                                               
-                                                                    
-
-        output = self.output_heatmaps(current_image_numpy,target_heatmaps)
-        file_name = 'check/{}.jpg'.format(current_idx)
-        cv2.imwrite(file_name,output)                                                                      
-                                                        
-        # numpy to torch converter!!                                                                                       
         target_heatmaps = torch.from_numpy(target_heatmaps)  # H W
-        target_heatmaps2 = torch.from_numpy(target_heatmaps2)  # H W
         target_heatmaps_weight = torch.from_numpy(target_heatmaps_weight)
 
         meta = {
@@ -350,36 +309,9 @@ class PoseTrack(VideoDataset):
             'margin_right': margin_right,
         }
 
-        return input_x, input_prev, input_next, target_heatmaps, target_heatmaps_weight, target_heatmaps2, meta
+        # 해당 return값에 따라 .. engine/function.py 부분 수정이 필요함.!!
 
-
-    # cv2 이미지어야함. - tensor가 아니라 
-    # heatmaps 또한 tensor형태가 아니여햐함.
-    def output_heatmaps(self, image, heatmaps):
-
-        heatmaps = heatmaps*255
-        heatmaps = heatmaps.astype('uint8')
-
-        num_joints, height, width = heatmaps.shape
-        image_resized = cv2.resize(image, (int(width), int(height)))
-
-        image_grid = np.zeros((height, (num_joints+1)*width, 3), dtype=np.uint8)
-
-        for j in range(num_joints):
-        # add_joints(image_resized, joints[:, j, :])
-            heatmap = heatmaps[j, :, :]
-
-            colored_heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-            image_fused = colored_heatmap*0.7 + image_resized*0.3
-
-            width_begin = width * (j+1)
-            width_end = width * (j+2)
-            image_grid[:, width_begin:width_end, :] = image_fused
-
-        image_grid[:, 0:width, :] = image_resized
-
-        return image_grid
-
+        return input_x, input_prev, input_next, target_heatmaps, target_heatmaps_weight, meta, input_prev_2, input_next_2
 
     def _get_single_frame(self, data_item):
         raise NotImplementedError
@@ -455,9 +387,6 @@ class PoseTrack(VideoDataset):
                 center, scale = box2cs(obj['clean_bbox'][:4], self.aspect_ratio, self.bbox_enlarge_factor)
                 rec.append({
                     'image': osp.join(self.img_dir, file_name),
-                    
-                    'origin_path': self.coco.loadImgs(index)[0]['file_name'],
-                    
                     'center': center,
                     'scale': scale,
                     'box': obj['clean_bbox'][:4],
@@ -499,20 +428,10 @@ class PoseTrack(VideoDataset):
 
             center, scale = box2cs(box, self.aspect_ratio, self.bbox_enlarge_factor)
             joints_3d = np.zeros((self.num_joints, 3), dtype=np.float)
-            joints_3d_vis = np.ones((self.num_joints, 3), dtype=np.float)
-            
-            # posetrack18 기준 json 
-            # "file_name": "images/val/009478_mpii_test/000000.jpg"
-            # self.coco.loadImgs(imgId)[0]['file_name']    
-                
+            joints_3d_vis = np.ones(
+                (self.num_joints, 3), dtype=np.float)
             kpt_data.append({
                 'image': osp.join(self.img_dir, img_name),
-                
-                # bbox에서 데이터를 불러오기 때문에 .. 이런 형태의 접근이 오히려 좋지 않음... 
-                # 해당 부분은 개선해야함 ... 
-                #'origin_path': self.coco.loadImgs(index)[0]['file_name'],
-
-                
                 'center': center,
                 'scale': scale,
                 'score': score,
