@@ -20,9 +20,14 @@ from utils.common import TRAIN_PHASE
 from utils.utils_registry import MODEL_REGISTRY
 
 
+# 기존의 방식의 Flowlayer를각각 계산하는 방식이기 때문에 오래 걸림......
+# 이에 프레임들을 batch 단위로 합쳐서 들어오는 형태로 수정을 함. 
+# FlowLayer의 input으로는 총 4개의 프레임이 batch 단위로 concat해서 들어오게 된다. 
+# 다른 하나의 현재 프레임을 총 4 repeat해서 concat해서 들어오게 된다. 
+
 class FlowLayer(nn.Module):
 
-    def __init__(self, channels=17, bath_size=64, n_iter=10):
+    def __init__(self, channels=17, n_iter=10):
         super(FlowLayer, self).__init__()
         #self.bottleneck = nn.Conv3d(channels, bottleneck, stride=1, padding=0, bias=False, kernel_size=1)
         #self.unbottleneck = nn.Conv3d(bottleneck*2, channels, stride=1, padding=0, bias=False, kernel_size=1)
@@ -70,6 +75,7 @@ class FlowLayer(nn.Module):
         
         # 수정
         self.bn = nn.BatchNorm2d(channels*2)
+        self.layer_norm = nn.LayerNorm([channels*2, 96, 72])
         self.relu = nn.ReLU(inplace=True)
 
 
@@ -228,8 +234,9 @@ class FlowLayer(nn.Module):
          
         
         flow = torch.cat([u1,u2], dim=1)
+        flow = self.layer_norm(flow)
         #flow = self.conv(flow)
-        flow = self.bn(flow)
+        #flow = self.bn(flow)
         #flow = self.relu(flow)
         
         
@@ -316,13 +323,13 @@ class DcPose_RSN(BaseModel):
         ####### PTM #######
         if ptm_basicblock_num > 0:
 
-            self.support_temporal_fuse = CHAIN_RSB_BLOCKS(self.num_joints * 3, ptm_inner_ch, ptm_basicblock_num,
+            self.support_temporal_fuse = CHAIN_RSB_BLOCKS(self.num_joints * 5, ptm_inner_ch, ptm_basicblock_num,
                                                           )
 
             # self.support_temporal_fuse = ChainOfBasicBlocks(self.num_joints * 3, ptm_inner_ch, 1, 1, 2,
             #                                                 ptm_basicblock_num, groups=self.num_joints)
         else:
-            self.support_temporal_fuse = nn.Conv2d(self.num_joints * 3, ptm_inner_ch, kernel_size=3, padding=1,
+            self.support_temporal_fuse = nn.Conv2d(self.num_joints * 5, ptm_inner_ch, kernel_size=3, padding=1,
                                                    groups=self.num_joints)
 
         #prf_ptm_combine_ch = prf_inner_ch + ptm_inner_ch
@@ -336,15 +343,11 @@ class DcPose_RSN(BaseModel):
         #                                                    prf_ptm_combine_basicblock_num)
 
 
-        self.p_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
-        self.n_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
+        self.heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
 
 
         ###### motion_module #######
-        self.motion_layer1 = FlowLayer(48,8)
-        
-        self.motion_layer2 = FlowLayer(48,8)
-
+        self.motion_layer1 = FlowLayer(48)
 
 
         ####### PCN #######
@@ -399,44 +402,36 @@ class DcPose_RSN(BaseModel):
         hrnet_stage3_output = rough_heatmaps[1]
         rough_heatmaps = rough_heatmaps[0]
         
-        #print(rough_heatmaps.shape)
-        #print(hrnet_stage3_output.shape)
-        
-        true_batch_size = int(rough_heatmaps.shape[0] / 3)
+        true_batch_size = int(rough_heatmaps.shape[0] / 5)
 
         # rough heatmaps in sequence frames
-        current_rough_heatmaps, previous_rough_heatmaps, next_rough_heatmaps = rough_heatmaps.split(true_batch_size, dim=0)
-
-
-        # ===================================================================================
-
-        #true_batch_size2 = int(rough_heatmaps.shape[0] / 3)
+        current_rough_heatmaps, previous_rough_heatmaps, next_rough_heatmaps, previous2_rough_heatmaps, next2_rough_heatmaps = rough_heatmaps.split(true_batch_size, dim=0)
 
         # hrnet stage3 출력값을 활용하여 flowlayer 작업을 진행을 함.
         # 기본적으로 stage3_output => batchsize, 48, 96, 72  형태를 가지고 있음.
-        current_hrnet_stage3_output, previous_hrnet_stage3_output, next_hrnet_stage3_output = hrnet_stage3_output.split(true_batch_size, dim=0)
+        current_hrnet_stage3_output, previous_hrnet_stage3_output, next_hrnet_stage3_output, previous2_hrnet_stage3_output, next2_hrnet_stage3_output = hrnet_stage3_output.split(true_batch_size, dim=0)
 
+        flow_input = torch.cat([previous_hrnet_stage3_output,next_hrnet_stage3_output, previous2_hrnet_stage3_output, next2_hrnet_stage3_output], 0)
+        flow_input_c = torch.cat([current_hrnet_stage3_output,current_hrnet_stage3_output, current_hrnet_stage3_output, current_hrnet_stage3_output], 0)
+        
+        rough_heatmpas_p1_n1_p2_n2 = torch.cat([previous_rough_heatmaps, next_rough_heatmaps, previous2_rough_heatmaps, next2_rough_heatmaps], 0)
 
         # motion_module_flowlayer
-        # 48채널 * 2 형태로 출력이 됨.
-        flow_p_c = self.motion_layer1(previous_hrnet_stage3_output,current_hrnet_stage3_output)
-        flow_n_c = self.motion_layer2(next_hrnet_stage3_output,current_hrnet_stage3_output)
+        # batch단위로합쳐졌기 때문에 채널 수가 변화가 되지는 않는다. 
+        flow_output = self.motion_layer1(flow_input,flow_input_c)
         
-        # 48채
-        stage3_p_c_diff = current_hrnet_stage3_output - previous_hrnet_stage3_output
-        stage3_n_c_diff = current_hrnet_stage3_output - next_hrnet_stage3_output
-
-        p_c_relation_output = torch.cat([previous_rough_heatmaps,flow_p_c,stage3_p_c_diff], dim=1)
-        n_c_relation_output = torch.cat([next_rough_heatmaps,flow_n_c,stage3_n_c_diff], dim=1)
+        # 48채널, batch : 입력배치*4배.
+        diff = flow_input - flow_input_c
         
-        p_c_heatmap_output = self.p_c_heatmap_output_layer(p_c_relation_output)
-        n_c_heatmap_output = self.n_c_heatmap_output_layer(n_c_relation_output)
+        relation_output = torch.cat([rough_heatmpas_p1_n1_p2_n2,flow_output,diff], dim=1)
+        relation_output = self.heatmap_output_layer(relation_output)
         
-        #print(p_c_heatmap_output.shape)
-        #print(n_c_heatmap_output.shape)
+        # batch단위로 합쳐진 것들을 분리한다.
+        p1_c_heatmap_output,n1_c_heatmap_output,p2_c_heatmap_output,n2_c_heatmap_output = relation_output.split(true_batch_size, dim=0)
 
         # jongmin 코드 기반으로 작업된 부분이다. 
-        support_heatmaps = torch.cat([current_rough_heatmaps,p_c_heatmap_output*0.5,n_c_heatmap_output*0.5], dim=1)
+        # 4개 프레임을 받기 때문에 17채널*5개 가 입력 채널이다. 
+        support_heatmaps = torch.cat([current_rough_heatmaps,p1_c_heatmap_output,n1_c_heatmap_output,p2_c_heatmap_output,n2_c_heatmap_output], dim=1)
         support_heatmaps = self.support_temporal_fuse(support_heatmaps).cuda()       
         
           
@@ -555,7 +550,7 @@ class DcPose_RSN(BaseModel):
         # output_heatmaps2 : origin gt와 비교
         
         # p->c, n->c 관련된 output도 추가한다. 각각 gt와 비교해서 loss를 구한다.
-        return output_heatmaps, p_c_heatmap_output, n_c_heatmap_output
+        return output_heatmaps
 
     def init_weights(self):
         logger = logging.getLogger(__name__)

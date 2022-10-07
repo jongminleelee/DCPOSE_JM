@@ -63,7 +63,7 @@ class CommonFunction(BaseFunction):
         end = time.time()
 
         for iter_step in range(self.max_iter_num):
-            input_x, input_sup_A, input_sup_B, target_heatmaps2, target_heatmaps_weight, target_heatmaps, meta = next(self.dataloader_iter)
+            input_x, input2_sup_A, input2_sup_B, target_heatmaps, target_heatmaps_weight, meta, input_sup_A, input_sup_B, = next(self.dataloader_iter)
             self._before_train_iter(input_x)
 
             data_time.update(time.time() - end)
@@ -77,7 +77,7 @@ class CommonFunction(BaseFunction):
             elif self.PE_Name == "DCPOSE":
                 margin_left, margin_right = meta["margin_left"], meta["margin_right"]
                 margin = torch.stack([margin_left, margin_right], dim=1).cuda()
-                concat_input = torch.cat((input_x, input_sup_A, input_sup_B), 1).cuda()
+                concat_input = torch.cat((input_x, input_sup_A, input_sup_B,input2_sup_A, input2_sup_B), 1).cuda()
 
                 outputs = model(concat_input, margin=margin)
             else:
@@ -88,10 +88,10 @@ class CommonFunction(BaseFunction):
                 #motion gt loss calc
                 #print("motion gt loss calc")
                 loss = self.criterion(pred_heatmaps, target_heatmaps, target_heatmaps_weight)
-                for pred_heatmaps in outputs[1:]:
+                for model_sub in outputs[1:]:
                     #origin gt loss calc
                     #print("p=>c, n=>c heatmap based ..............")
-                    loss += self.criterion(pred_heatmaps, target_heatmaps, target_heatmaps_weight)
+                    loss += self.criterion(model_sub, target_heatmaps, target_heatmaps_weight)
             else:
                 #print("inference : ")
                 pred_heatmaps = outputs
