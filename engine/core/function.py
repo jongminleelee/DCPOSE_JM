@@ -112,7 +112,7 @@ class CommonFunction(BaseFunction):
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
-            if iter_step % self.cfg.PRINT_FREQ == 0 or iter_step >= self.max_iter_num - 1:
+            if iter_step % self.cfg.PRINT_FREQ == 0 or iter_step >= self.max_iter_num - 1 or iter_step%50==0:
 
                 msg = 'Epoch: [{0}][{1}/{2}]\t' \
                       'Time {batch_time.val:.3f}s ({batch_time.avg:.3f}s)\t' \
