@@ -1,6 +1,5 @@
 /demo/input/
 /demo/output/
-/DCPose/thirdparty/
 /output
 /output1
 /output2
@@ -17,5 +16,5 @@
 /output13
 /output14
 /output15
-/tools
+
 .idea
