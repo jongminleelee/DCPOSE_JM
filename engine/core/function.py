@@ -22,7 +22,26 @@ from utils.utils_image_tensor import tensor2im
 
 from tabulate import tabulate
 
+import torch.nn as nn
 
+class FeatureMSELoss(nn.Module):
+    def __init__(self):
+        super(FeatureMSELoss, self).__init__()
+        self.criterion = nn.MSELoss(reduction='mean')
+
+    def forward(self, output, target):
+        batch_size = output.size(0)
+        num_channel = output.size(1)
+        heatmaps_pred = output.reshape((batch_size, num_channel, -1)).split(1, 1)
+        heatmaps_gt = target.reshape((batch_size, num_channel, -1)).split(1, 1)
+        loss = 0
+
+        for idx in range(num_channel):
+            heatmap_pred = heatmaps_pred[idx].squeeze()
+            heatmap_gt = heatmaps_gt[idx].squeeze()
+            loss += self.criterion(heatmap_pred, heatmap_gt)
+
+        return loss / num_channel
 
 @CORE_FUNCTION_REGISTRY.register()
 class CommonFunction(BaseFunction):
@@ -46,6 +65,7 @@ class CommonFunction(BaseFunction):
         self.tb_writer = None
         self.global_steps = 0
         self.DataSetName = str(self.cfg.DATASET.NAME).upper()
+        self.feature_mse = FeatureMSELoss()
 
     def train(self, model, epoch, optimizer, dataloader, tb_writer_dict, **kwargs):
         self.tb_writer = tb_writer_dict["writer"]
@@ -88,10 +108,19 @@ class CommonFunction(BaseFunction):
                 #motion gt loss calc
                 #print("motion gt loss calc")
                 loss = self.criterion(pred_heatmaps, target_heatmaps, target_heatmaps_weight)
+                
+                # outputs[2] => hrnet_current_stage3
+                # outputs[1~4] => prev1,prev2,next1,next2 중 하나.
+                # p1_c_fv_output,n1_c_fv_output,p2_c_fv_output,n2_c_fv_output
+                # 4개의 loss를 돌아가면서 작업을 하는 이유는 .. 하나의 opticalflow방향성에 치우쳐있을 수 있기 때문...
+                
+                loss += 0.5*self.feature_mse(outputs[1+iter_step%4], outputs[5])
+                '''
                 for model_sub in outputs[1:]:
                     #origin gt loss calc
                     #print("p=>c, n=>c heatmap based ..............")
                     loss += self.criterion(model_sub, target_heatmaps, target_heatmaps_weight)
+                '''
             else:
                 #print("inference : ")
                 pred_heatmaps = outputs

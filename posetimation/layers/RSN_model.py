@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
 
-__all__ = ["RSB_BLOCK", "CHAIN_RSB_BLOCKS", "RSN_WEIGHT_VECTOR", "RSN_ATTENTION"]
+__all__ = ["RSB_BLOCK", "CHAIN_RSB_BLOCKS", "RSN_WEIGHT_VECTOR", "RSN_ATTENTION", "conv_bn_relu"]
 
 
 class CHAIN_RSB_BLOCKS(nn.Module):
@@ -105,11 +105,11 @@ class RSB_BLOCK(nn.Module):
 
 class conv_bn_relu(nn.Module):
 
-    def __init__(self, in_planes, out_planes, kernel_size, stride, padding,
-                 has_bn=True, has_relu=True, efficient=False, groups=1):
+    def __init__(self, in_planes, out_planes, kernel_size, stride, padding, dilation=1,
+                 has_bias=True, has_bn=True, has_relu=True, efficient=False, groups=1, act='ReLU'):
         super(conv_bn_relu, self).__init__()
         self.conv = nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size,
-                              stride=stride, padding=padding, groups=groups)
+                              stride=stride, padding=padding, dilation=dilation, groups=groups, bias=has_bias)
         self.has_bn = has_bn
         self.has_relu = has_relu
         self.efficient = efficient

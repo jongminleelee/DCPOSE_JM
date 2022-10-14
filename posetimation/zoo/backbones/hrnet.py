@@ -156,6 +156,9 @@ class HRNet(BaseModel):
                 x3_list.append(y_list[i])
         #############
         y_list = self.stage4(x3_list)
+        
+        #print(y_list[0].shape)
+        
         rough_pose_heatmaps = self.final_layer(y_list[0])
         
         #print(rough_pose_heatmaps.shape)
@@ -163,7 +166,7 @@ class HRNet(BaseModel):
         if self.use_deconv:
             return y_list[0], rough_pose_heatmaps
         else:
-            return rough_pose_heatmaps, stage3_output 
+            return rough_pose_heatmaps, stage3_output, y_list[0] 
 
     def freeze_weight(self):
         for module in self.modules():

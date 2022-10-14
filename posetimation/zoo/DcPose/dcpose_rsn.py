@@ -14,10 +14,12 @@ from ..base import BaseModel
 
 from thirdparty.deform_conv import DeformConv, ModulatedDeformConv
 from posetimation.layers import BasicBlock, ChainOfBasicBlocks, DeformableCONV, PAM_Module, CAM_Module
-from posetimation.layers import RSB_BLOCK, CHAIN_RSB_BLOCKS
+from posetimation.layers import RSB_BLOCK, CHAIN_RSB_BLOCKS, conv_bn_relu
 from ..backbones.hrnet import HRNet
 from utils.common import TRAIN_PHASE
 from utils.utils_registry import MODEL_REGISTRY
+
+from torchvision.ops.deform_conv import DeformConv2d
 
 
 # 기존의 방식의 Flowlayer를각각 계산하는 방식이기 때문에 오래 걸림......
@@ -312,6 +314,7 @@ class DcPose_RSN(BaseModel):
 
         assert self.use_prf and self.use_ptm and self.use_pcn and self.use_margin and self.use_margin and self.use_group
 
+        '''
         ####### PRF #######
         #diff_temporal_fuse_input_channels = self.num_joints * 4
         #self.diff_temporal_fuse = CHAIN_RSB_BLOCKS(diff_temporal_fuse_input_channels, prf_inner_ch, prf_basicblock_num,
@@ -341,15 +344,64 @@ class DcPose_RSN(BaseModel):
         self.offset_mask_combine_conv = CHAIN_RSB_BLOCKS(prf_ptm_combine_ch, prf_ptm_combine_inner_ch, prf_ptm_combine_basicblock_num)
         # self.offset_mask_combine_conv = ChainOfBasicBlocks(prf_ptm_combine_ch, prf_ptm_combine_inner_ch, 1, 1, 2,
         #                                                    prf_ptm_combine_basicblock_num)
-
-
-        self.heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
-
-
+        '''
+        
         ###### motion_module #######
         self.motion_layer1 = FlowLayer(48)
+        self.heatmap_output_layer1 = CHAIN_RSB_BLOCKS(192, 96, 1)
+        self.heatmap_output_layer2 = CHAIN_RSB_BLOCKS(96, 48, 1)
 
+        # ===================================================================================================================
+        """
+        Args:
+            input (Tensor[batch_size, in_channels, in_height, in_width]): input tensor
+            
+            offset (Tensor[batch_size, 2 * offset_groups * kernel_height * kernel_width,out_height, out_width])
+            : offsets to be applied for each position in the convolution kernel.
+                
+            mask (Tensor[batch_size, offset_groups * kernel_height * kernel_width, out_height, out_width])
+            : masks to be applied for each position in the convolution kernel.
+        """
+        
+        n_kernel_group = 12
+        
+        # 2 * offset_groups * kernel_height * kernel_width
+        n_offset_channel = 2 * 3 * 3 * n_kernel_group  # 18 * 4 = 64
+        
+        # offset_groups * kernel_height * kernel_width
+        n_mask_channel = 3 * 3 * n_kernel_group
 
+        self.combined_feat_layers = ChainOfBasicBlocks(48*2, 48, (3, 3), (1, 1), (1, 1), num_blocks=1)
+        self.dcn_offset_1 = conv_bn_relu(48, n_offset_channel, 3, 1, padding=3, dilation=3, has_bn=False, has_relu=False)
+        self.dcn_mask_1 = conv_bn_relu(48, n_mask_channel, 3, 1, padding=3, dilation=3, has_bn=False, has_relu=False)
+        
+        self.dcn_1 = ModulatedDeformConv(48, 48, 3, padding=3, dilation=3)
+
+        self.dcn_offset_2 = conv_bn_relu(48, n_offset_channel, 3, 1, padding=3, dilation=3, has_bn=False, has_relu=False)
+        self.dcn_mask_2 = conv_bn_relu(48, n_mask_channel, 3, 1, padding=3, dilation=3, has_bn=False, has_relu=False)
+        self.dcn_2 = ModulatedDeformConv(48, 48, 3, padding=3, dilation=3)
+
+        self.dcn_offset_3 = conv_bn_relu(48, n_offset_channel, 3, 1, padding=3, dilation=3, has_bn=False,
+                                         has_relu=False)
+        self.dcn_mask_3 = conv_bn_relu(48, n_mask_channel, 3, 1, padding=3, dilation=3, has_bn=False,
+                                       has_relu=False)
+        self.dcn_3 = ModulatedDeformConv(48, 48, 3, padding=3, dilation=3)
+
+        self.dcn_offset_4 = conv_bn_relu(48, n_offset_channel, 3, 1, padding=3, dilation=3, has_bn=False,
+                                         has_relu=False)
+        self.dcn_mask_4 = conv_bn_relu(48, n_mask_channel, 3, 1, padding=3, dilation=3, has_bn=False,
+                                       has_relu=False)
+        self.dcn_4 = ModulatedDeformConv(48, 48, 3, padding=3, dilation=3)
+
+        self.sup_agg_block = CHAIN_RSB_BLOCKS(48 * 4, 48, num_blocks=2)
+        #self.sup_agg_block = ChainOfBasicBlocks(input_channel=48 * 4, ouput_channel=48, num_blocks=2)
+        self.init_feature_agg_block = CHAIN_RSB_BLOCKS(48 * 2, 48, num_blocks=3)
+        #self.init_feature_agg_block = ChainOfBasicBlocks(input_channel=48 * 2, ouput_channel=48, num_blocks=3)
+        
+        self.agg_final_layer = nn.Conv2d(48, 17, 3, 1, 1)
+
+        # =======================================================================================================================================
+        '''
         ####### PCN #######
         self.offsets_list, self.masks_list, self.modulated_deform_conv_list = [], [], []
         for d_index, dilation in enumerate(self.deformable_conv_dilations):
@@ -364,6 +416,7 @@ class DcPose_RSN(BaseModel):
         self.offsets_list = nn.ModuleList(self.offsets_list)
         self.masks_list = nn.ModuleList(self.masks_list)
         self.modulated_deform_conv_list = nn.ModuleList(self.modulated_deform_conv_list)
+        '''
 
     def _offset_conv(self, nc, kh, kw, dd, dg):
         conv = nn.Conv2d(nc, dg * 2 * kh * kw, kernel_size=(3, 3), stride=(1, 1), dilation=(dd, dd), padding=(1 * dd, 1 * dd), bias=False)
@@ -399,6 +452,7 @@ class DcPose_RSN(BaseModel):
         # 네트워크해서 채널방향으로 쪼개고 나서 그것을 batchsize방향으로 합치는 것일까?
         rough_heatmaps = self.rough_pose_estimation_net(torch.cat(x.split(num_color_channels, dim=1), 0))
         
+        hrnet_stage4_output = rough_heatmaps[2]
         hrnet_stage3_output = rough_heatmaps[1]
         rough_heatmaps = rough_heatmaps[0]
         
@@ -411,10 +465,12 @@ class DcPose_RSN(BaseModel):
         # 기본적으로 stage3_output => batchsize, 48, 96, 72  형태를 가지고 있음.
         current_hrnet_stage3_output, previous_hrnet_stage3_output, next_hrnet_stage3_output, previous2_hrnet_stage3_output, next2_hrnet_stage3_output = hrnet_stage3_output.split(true_batch_size, dim=0)
 
+        current_hrnet_stage4_output, previous_hrnet_stage4_output, next_hrnet_stage4_output, previous2_hrnet_stage4_output, next2_hrnet_stage4_output = hrnet_stage4_output.split(true_batch_size, dim=0)
+
         flow_input = torch.cat([previous_hrnet_stage3_output,next_hrnet_stage3_output, previous2_hrnet_stage3_output, next2_hrnet_stage3_output], 0)
         flow_input_c = torch.cat([current_hrnet_stage3_output,current_hrnet_stage3_output, current_hrnet_stage3_output, current_hrnet_stage3_output], 0)
         
-        rough_heatmpas_p1_n1_p2_n2 = torch.cat([previous_rough_heatmaps, next_rough_heatmaps, previous2_rough_heatmaps, next2_rough_heatmaps], 0)
+        #rough_heatmpas_p1_n1_p2_n2 = torch.cat([previous_rough_heatmaps, next_rough_heatmaps, previous2_rough_heatmaps, next2_rough_heatmaps], 0)
 
         # motion_module_flowlayer
         # batch단위로합쳐졌기 때문에 채널 수가 변화가 되지는 않는다. 
@@ -423,135 +479,55 @@ class DcPose_RSN(BaseModel):
         # 48채널, batch : 입력배치*4배.
         diff = flow_input - flow_input_c
         
-        relation_output = torch.cat([rough_heatmpas_p1_n1_p2_n2,flow_output,diff], dim=1)
-        relation_output = self.heatmap_output_layer(relation_output)
+        
+        # 해당 과정을 통해 과거2,과거1,미래1,미래2는 => 현재에 해당하는 feature vector를 생성할 수 있도록 CONV LAYER 거치게 됨. 
+        # 현재 stage3 feature vector를 통해서 ... 
+        # stage3를 현재 feature vector의 ... 연산할 때 여러 스케일을 모두 작업이 필요 ....
+        # 해당 결과 중 과거1, 미래2에 대한 loss를 계산함.
+        
+        # 48channel + 48*2channel + 48channel
+        relation_output = torch.cat([flow_input,flow_output,diff], dim=1)
+        relation_output = self.heatmap_output_layer1(relation_output) # 192 => 96 channel
+        relation_output = self.heatmap_output_layer2(relation_output) # 96 => 48 channel
         
         # batch단위로 합쳐진 것들을 분리한다.
-        p1_c_heatmap_output,n1_c_heatmap_output,p2_c_heatmap_output,n2_c_heatmap_output = relation_output.split(true_batch_size, dim=0)
+        p1_c_fv_output,n1_c_fv_output,p2_c_fv_output,n2_c_fv_output = relation_output.split(true_batch_size, dim=0)
 
-        # jongmin 코드 기반으로 작업된 부분이다. 
-        # 4개 프레임을 받기 때문에 17채널*5개 가 입력 채널이다. 
-        support_heatmaps = torch.cat([current_rough_heatmaps,p1_c_heatmap_output,n1_c_heatmap_output,p2_c_heatmap_output,n2_c_heatmap_output], dim=1)
-        support_heatmaps = self.support_temporal_fuse(support_heatmaps).cuda()       
+        agg_sup_feat = torch.cat([p1_c_fv_output,n1_c_fv_output,p2_c_fv_output,n2_c_fv_output], dim=1)
+        agg_sup_feat = self.sup_agg_block(agg_sup_feat)        
+    
+        # 과거2, 과거1, 미래1, 미래2, 현재 모두를 비율을 정해서 concat해서... 최종 heatmap을 추론하는 과정을 실시해야함
+        combined_feat = self.combined_feat_layers(torch.cat([agg_sup_feat, current_hrnet_stage3_output], dim=1))
+        dcn_offset = self.dcn_offset_1(combined_feat)
+        dcn_mask = self.dcn_mask_1(combined_feat)
+        combined_feat = self.dcn_1(combined_feat, dcn_offset, dcn_mask)
+
+        dcn_offset = self.dcn_offset_2(combined_feat)
+        dcn_mask = self.dcn_mask_2(combined_feat)
+        combined_feat = self.dcn_2(combined_feat, dcn_offset, dcn_mask)
+
+        dcn_offset = self.dcn_offset_3(combined_feat)
+        dcn_mask = self.dcn_mask_3(combined_feat)
+        aligned_sup_feat = self.dcn_3(agg_sup_feat, dcn_offset, dcn_mask)
+
+        dcn_offset = self.dcn_offset_4(aligned_sup_feat)
+        dcn_mask = self.dcn_mask_4(aligned_sup_feat)
+        aligned_sup_feat = self.dcn_4(aligned_sup_feat, dcn_offset, dcn_mask)
+
+        # stage4에서 stage3로 이동... 
+        # stage3의 경우, 너무 해당 정보가 강해서 오히려 편향이 생길 것 같음.
+        kf_sup_feat = torch.cat([current_hrnet_stage3_output, aligned_sup_feat], dim=1)
+        all_agg_features = self.init_feature_agg_block(kf_sup_feat)
+
+        # nn.Conv2d(48, 17, 3, 1, 1)
+        final_hm = self.agg_final_layer(all_agg_features)
         
-          
-        '''          
-        # Difference A and Difference B
-        diff_A = current_rough_heatmaps - previous_rough_heatmaps
-        diff_B = current_rough_heatmaps - next_rough_heatmaps
-
-        # default use_margin,use_group
-        # 왼쪽마진와 오른족 마진에 대한 값이 때문에 두개의 값을 합하게 되면 n-p와 같은 효과를 볼 수 있다. 
-        interval = torch.sum(margin, dim=1, keepdim=True)  # interval = n-p
+        # outputs[2] => hrnet_current_stage3
+        # outputs[1] => prev1,prev2,next1,next2 중 하나.
         
-        # pre_weight와 next_weight 계산 시, 브로드캐스팅을 통해서 연산이 된다. 
-        # 왜?? unsqueeze를 3번이나 하는 것인가?
-        margin = torch.div(margin.float(), interval.float())  # margin -> (c-p)/(n-p), (n-c)/(n-p)
-        prev_weight, next_weight = margin[:, 1], margin[:, 0]  # previous frame weight - (n-c)/(n-p) , next frame weight - (c-p)/(n-p)
-        diff_shape = diff_A.shape
-        prev_weight = prev_weight.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
-        next_weight = next_weight.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
-        extend_shape = [1, 1]  # batch, channel
-        extend_shape.extend(list(diff_shape[2:]))
-        prev_weight, next_weight = prev_weight.repeat(extend_shape), next_weight.repeat(extend_shape)
-
-        #조인트별로 쪼개는 부분이다. 
-        #조인트별로 쪼개서 비교한다라고 생각하면 된다. 
-        #diff_A_list, diff_B_list = diff_A.split(1, dim=1), diff_B.split(1, dim=1)
-        #temp_diff_fuse_list = []
-        #for joint_index in range(self.num_joints):
-        #    temp_diff_fuse_list.append(diff_A_list[joint_index])
-        #    temp_diff_fuse_list.append(diff_A_list[joint_index] * prev_weight)
-        #    temp_diff_fuse_list.append(diff_B_list[joint_index])
-        #    temp_diff_fuse_list.append(diff_B_list[joint_index] * next_weight)
-
-        #dif_heatmaps = torch.cat(temp_diff_fuse_list, dim=1)
-        #dif_heatmaps = self.diff_temporal_fuse(dif_heatmaps)
-
-        # 조인트별 기준으로 쪼개지게 된다. 
-        # 히트맵의 결과값은 batch, joint_num 형태로 구성되기 때문이다.
-        current_rough_heatmaps_list = current_rough_heatmaps.split(1, dim=1)
-        previous_rough_heatmaps_list = previous_rough_heatmaps.split(1, dim=1)
-        next_rough_heatmaps_list = next_rough_heatmaps.split(1, dim=1)
-        temp_support_fuse_list = []
-        for joint_index in range(self.num_joints):
-            temp_support_fuse_list.append(current_rough_heatmaps_list[joint_index])
-            temp_support_fuse_list.append(previous_rough_heatmaps_list[joint_index] * prev_weight)
-            temp_support_fuse_list.append(next_rough_heatmaps_list[joint_index] * next_weight)
-
-        support_heatmaps = torch.cat(temp_support_fuse_list, dim=1)
+        return final_hm, p1_c_fv_output,n1_c_fv_output,p2_c_fv_output,n2_c_fv_output, current_hrnet_stage3_output   
+            
         
-        # self.support_temporal_fuse = CHAIN_RSB_BLOCKS(self.num_joints * 3, ptm_inner_ch, ptm_basicblock_num,)
-        # 해당 위 layer는 3*3 stack layer 부분이다. 
-        # 이 때 왜? ptm의 결과를 
-        support_heatmaps = self.support_temporal_fuse(support_heatmaps).cuda()
-        '''
-        # 3*3 conv stack conv 처리 !!
-        prf_ptm_combine_featuremaps = self.offset_mask_combine_conv(torch.cat([support_heatmaps], dim=1))
-        #prf_ptm_combine_featuremaps = self.offset_mask_combine_conv(torch.cat([dif_heatmaps, support_heatmaps], dim=1))
-        
-        # jongmin - add code
-        # prf_ptm_combine_featuremaps2 = self.offset_mask_combine_conv(torch.cat([dif_heatmaps, support_heatmaps], dim=1))
-
-
-          #DEFORMABLE_CONV:
-            #DILATION:
-            #- 3
-            #- 6
-            #- 9
-            #- 12
-            #- 15
-
-        warped_heatmaps_list = []
-        for d_index, dilation in enumerate(self.deformable_conv_dilations):
-            offsets = self.offsets_list[d_index](prf_ptm_combine_featuremaps)
-            masks = self.masks_list[d_index](prf_ptm_combine_featuremaps)
-
-            warped_heatmaps = self.modulated_deform_conv_list[d_index](support_heatmaps, offsets, masks)
-            warped_heatmaps_list.append(warped_heatmaps)
-
-
-        if self.deformable_aggregation_type == "weighted_sum":
-
-            # 5개의 dilations가 있기 때문에 해당 부분을 균등하게 1/5 씩 weight값을 부여함. 
-            warper_weight = 1 / len(self.deformable_conv_dilations)
-            output_heatmaps = warper_weight * warped_heatmaps_list[0]
-            for warper_heatmaps in warped_heatmaps_list[1:]:
-                output_heatmaps += warper_weight * warper_heatmaps
-
-        else:
-            output_heatmaps = self.deformable_aggregation_conv(torch.cat(warped_heatmaps_list, dim=1))
-            # elif self.deformable_aggregation_type == "conv":
-
-        # ----------------------------------------------------------------------
-
-        # warped_heatmaps_list2 = []
-        # for d_index, dilation in enumerate(self.deformable_conv_dilations):
-        #     offsets2 = self.offsets_list[d_index](prf_ptm_combine_featuremaps)
-        #     masks2 = self.masks_list[d_index](prf_ptm_combine_featuremaps)
-
-        #     warped_heatmaps2 = self.modulated_deform_conv_list[d_index](support_heatmaps, offsets2, masks2)
-        #     warped_heatmaps_list2.append(warped_heatmaps2)
-
-
-        # if self.deformable_aggregation_type == "weighted_sum":
-
-        #     # 5개의 dilations가 있기 때문에 해당 부분을 균등하게 1/5 씩 weight값을 부여함. 
-        #     warper_weight2 = 1 / len(self.deformable_conv_dilations)
-        #     output_heatmaps2 = warper_weight2 * warped_heatmaps_list2[0]
-        #     for warper_heatmaps2 in warped_heatmaps_list2[1:]:
-        #         output_heatmaps2 += warper_weight2 * warper_heatmaps2
-
-
-        # self.freeze_hrnet_weights => true (config파일)
-        
-        # jongmin add code    
-        # output_heatmaps : motion gt와 비교
-        # output_heatmaps2 : origin gt와 비교
-        
-        # p->c, n->c 관련된 output도 추가한다. 각각 gt와 비교해서 loss를 구한다.
-        return output_heatmaps
-
     def init_weights(self):
         logger = logging.getLogger(__name__)
         ## init_weights
