@@ -20,8 +20,8 @@ MODEL:
   INIT_WEIGHTS: true
 
   NUM_JOINTS: 17
-  #PRETRAINED: './DcPose_supp_files/pretrained_models/pretrained_.pth'
-  PRETRAINED: "./DcPose_supp_files/pretrained_models/pretrained_coco_model.pth"
+  PRETRAINED: "./DcPose_supp_files/pretrained_models/pretrained_.pth"
+  #PRETRAINED: "./DcPose_supp_files/pretrained_models/pretrained_coco_model.pth"
   TARGET_TYPE: gaussian
   IMAGE_SIZE:
     - 288
