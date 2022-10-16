@@ -114,7 +114,7 @@ class CommonFunction(BaseFunction):
                 # p1_c_fv_output,n1_c_fv_output,p2_c_fv_output,n2_c_fv_output
                 # 4개의 loss를 돌아가면서 작업을 하는 이유는 .. 하나의 opticalflow방향성에 치우쳐있을 수 있기 때문...
                 
-                loss += 0.5*self.feature_mse(outputs[1+iter_step%4], outputs[5])
+                #loss += 0.5*self.feature_mse(outputs[1+iter_step%4], outputs[5])
                 '''
                 for model_sub in outputs[1:]:
                     #origin gt loss calc
