@@ -1,7 +1,7 @@
 _BASE_: "../Base_PoseTrack18.yaml"
 EXPERIMENT_NAME: 'DCPose_Network_Model_RSN'
 WORKERS: 16
-GPUS: (0,1)
+GPUS: (0,1,2,3)
 OUTPUT_DIR: './output10_jm_flow_/PE/DcPose/'
 
 
