@@ -63,7 +63,7 @@ class CommonFunction(BaseFunction):
         end = time.time()
 
         for iter_step in range(self.max_iter_num):
-            input_x, input_sup_A, input_sup_B, target_heatmaps2, target_heatmaps_weight, target_heatmaps, meta = next(self.dataloader_iter)
+            input_x, input_sup_A, input_sup_B, target_heatmaps, target_heatmaps_weight, meta = next(self.dataloader_iter)
             self._before_train_iter(input_x)
 
             data_time.update(time.time() - end)
