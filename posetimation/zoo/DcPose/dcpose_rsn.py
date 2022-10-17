@@ -316,7 +316,7 @@ class DcPose_RSN(BaseModel):
         ####### PTM #######
         if ptm_basicblock_num > 0:
 
-            self.support_temporal_fuse = CHAIN_RSB_BLOCKS(self.num_joints * 3, ptm_inner_ch, ptm_basicblock_num,
+            self.support_temporal_fuse = CHAIN_RSB_BLOCKS(self.num_joints * 4, ptm_inner_ch, ptm_basicblock_num,
                                                           )
 
             # self.support_temporal_fuse = ChainOfBasicBlocks(self.num_joints * 3, ptm_inner_ch, 1, 1, 2,
@@ -336,8 +336,18 @@ class DcPose_RSN(BaseModel):
         #                                                    prf_ptm_combine_basicblock_num)
 
 
-        self.p_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
-        self.n_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
+        self.flowlayer_input_layer_pre = CHAIN_RSB_BLOCKS(48, 48, 3)
+        self.flowlayer_input_layer_next = CHAIN_RSB_BLOCKS(48, 48, 3)
+        self.flowlayer_input_layer_current = CHAIN_RSB_BLOCKS(48, 48, 3)
+
+        self.p_c_heatmap_output_layer1 = CHAIN_RSB_BLOCKS(161, 96, 1)
+        self.n_c_heatmap_output_layer1 = CHAIN_RSB_BLOCKS(161, 96, 1)
+        
+        self.p_c_heatmap_output_layer2 = CHAIN_RSB_BLOCKS(96, 48, 1)
+        self.n_c_heatmap_output_layer2 = CHAIN_RSB_BLOCKS(96, 48, 1)
+        
+        self.p_c_heatmap_output_layer3 = CHAIN_RSB_BLOCKS(48, 17, 1)
+        self.n_c_heatmap_output_layer3 = CHAIN_RSB_BLOCKS(48, 17, 1)
 
 
         ###### motion_module #######
@@ -417,26 +427,36 @@ class DcPose_RSN(BaseModel):
         current_hrnet_stage3_output, previous_hrnet_stage3_output, next_hrnet_stage3_output = hrnet_stage3_output.split(true_batch_size, dim=0)
 
 
+        flow_pre_input = self.flowlayer_input_layer_pre(previous_hrnet_stage3_output)
+        flow_next_input = self.flowlayer_input_layer_next(previous_hrnet_stage3_output)
+        flow_currnet_input = self.flowlayer_input_layer_current(previous_hrnet_stage3_output)
+
         # motion_module_flowlayer
         # 48채널 * 2 형태로 출력이 됨.
-        flow_p_c = self.motion_layer1(previous_hrnet_stage3_output,current_hrnet_stage3_output)
-        flow_n_c = self.motion_layer2(next_hrnet_stage3_output,current_hrnet_stage3_output)
+        flow_p_c = self.motion_layer1(flow_pre_input,flow_currnet_input)
+        flow_n_c = self.motion_layer2(flow_next_input,flow_currnet_input)
         
         # 48채
-        stage3_p_c_diff = current_hrnet_stage3_output - previous_hrnet_stage3_output
-        stage3_n_c_diff = current_hrnet_stage3_output - next_hrnet_stage3_output
+        stage3_p_c_diff = flow_currnet_input - flow_pre_input
+        stage3_n_c_diff = flow_currnet_input - flow_next_input
 
         p_c_relation_output = torch.cat([previous_rough_heatmaps,flow_p_c,stage3_p_c_diff], dim=1)
         n_c_relation_output = torch.cat([next_rough_heatmaps,flow_n_c,stage3_n_c_diff], dim=1)
         
-        p_c_heatmap_output = self.p_c_heatmap_output_layer(p_c_relation_output)
-        n_c_heatmap_output = self.n_c_heatmap_output_layer(n_c_relation_output)
-        
+        # 단계별로 채널이 줄어들도록 수정
+        p_c_heatmap_output = self.p_c_heatmap_output_layer1(p_c_relation_output)
+        n_c_heatmap_output = self.n_c_heatmap_output_layer1(n_c_relation_output)
+        p_c_heatmap_output = self.p_c_heatmap_output_layer2(p_c_relation_output)
+        n_c_heatmap_output = self.n_c_heatmap_output_layer2(n_c_relation_output)        
+        p_c_heatmap_output = self.p_c_heatmap_output_layer3(p_c_relation_output)
+        n_c_heatmap_output = self.n_c_heatmap_output_layer3(n_c_relation_output)        
         #print(p_c_heatmap_output.shape)
         #print(n_c_heatmap_output.shape)
 
+        sum_heatmap_output = p_c_heatmap_output*0.25 + n_c_heatmap_output*0.25 + current_rough_heatmaps*0.5
+
         # jongmin 코드 기반으로 작업된 부분이다. 
-        support_heatmaps = torch.cat([current_rough_heatmaps,p_c_heatmap_output*0.5,n_c_heatmap_output*0.5], dim=1)
+        support_heatmaps = torch.cat([current_rough_heatmaps,p_c_heatmap_output,n_c_heatmap_output,sum_heatmap_output], dim=1)
         support_heatmaps = self.support_temporal_fuse(support_heatmaps).cuda()       
         
           
