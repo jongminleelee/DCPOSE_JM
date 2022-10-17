@@ -170,7 +170,7 @@ class CommonFunction(BaseFunction):
             end = time.time()
             num_batch = len(dataloader)
             for iter_step in range(self.max_iter_num):
-                input_x, input_sup_A, input_sup_B, target_heatmaps2, target_heatmaps_weight, target_heatmaps, meta = next(self.dataloader_iter)
+                input_x, input_sup_A, input_sup_B, target_heatmaps, target_heatmaps_weight,  meta = next(self.dataloader_iter)
                 if phase == VAL_PHASE:
                     self._before_val_iter(input_x)
 
@@ -180,7 +180,7 @@ class CommonFunction(BaseFunction):
                 margin_right = meta["margin_right"]
                 margin = torch.stack([margin_left, margin_right], dim=1).cuda()
                 target_heatmaps = target_heatmaps.cuda(non_blocking=True)
-                target_heatmaps2 = target_heatmaps.cuda(non_blocking=True)
+                #target_heatmaps2 = target_heatmaps.cuda(non_blocking=True)
 
                 # outputs = model(concat_input, margin)
                 if self.PE_Name == 'DCPOSE':

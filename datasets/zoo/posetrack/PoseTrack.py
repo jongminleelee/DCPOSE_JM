@@ -187,6 +187,7 @@ class PoseTrack(VideoDataset):
             raise Exception(error_msg)
         if not osp.exists(next_2_image_file):
             error_msg = "Can not find image :{}".format(next_2_image_file)
+            #print(next_2_image_file)
             self.logger.error(error_msg)
             raise Exception(error_msg)
 
