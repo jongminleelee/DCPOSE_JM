@@ -340,14 +340,14 @@ class DcPose_RSN(BaseModel):
         self.flowlayer_input_layer_next = CHAIN_RSB_BLOCKS(48, 48, 3)
         self.flowlayer_input_layer_current = CHAIN_RSB_BLOCKS(48, 48, 3)
 
-        self.p_c_heatmap_output_layer1 = CHAIN_RSB_BLOCKS(161, 96, 1)
-        self.n_c_heatmap_output_layer1 = CHAIN_RSB_BLOCKS(161, 96, 1)
+        self.p_c_heatmap_output_layer1 = CHAIN_RSB_BLOCKS(161, 96, 2)
+        self.n_c_heatmap_output_layer1 = CHAIN_RSB_BLOCKS(161, 96, 2)
         
-        self.p_c_heatmap_output_layer2 = CHAIN_RSB_BLOCKS(96, 48, 1)
-        self.n_c_heatmap_output_layer2 = CHAIN_RSB_BLOCKS(96, 48, 1)
+        self.p_c_heatmap_output_layer2 = CHAIN_RSB_BLOCKS(96, 48, 2)
+        self.n_c_heatmap_output_layer2 = CHAIN_RSB_BLOCKS(96, 48, 2)
         
-        self.p_c_heatmap_output_layer3 = CHAIN_RSB_BLOCKS(48, 17, 1)
-        self.n_c_heatmap_output_layer3 = CHAIN_RSB_BLOCKS(48, 17, 1)
+        self.p_c_heatmap_output_layer3 = CHAIN_RSB_BLOCKS(48, 17, 2)
+        self.n_c_heatmap_output_layer3 = CHAIN_RSB_BLOCKS(48, 17, 2)
 
 
         ###### motion_module #######
@@ -428,8 +428,8 @@ class DcPose_RSN(BaseModel):
 
 
         flow_pre_input = self.flowlayer_input_layer_pre(previous_hrnet_stage3_output)
-        flow_next_input = self.flowlayer_input_layer_next(previous_hrnet_stage3_output)
-        flow_currnet_input = self.flowlayer_input_layer_current(previous_hrnet_stage3_output)
+        flow_next_input = self.flowlayer_input_layer_next(next_hrnet_stage3_output)
+        flow_currnet_input = self.flowlayer_input_layer_current(current_hrnet_stage3_output)
 
         # motion_module_flowlayer
         # 48채널 * 2 형태로 출력이 됨.
@@ -446,10 +446,10 @@ class DcPose_RSN(BaseModel):
         # 단계별로 채널이 줄어들도록 수정
         p_c_heatmap_output = self.p_c_heatmap_output_layer1(p_c_relation_output)
         n_c_heatmap_output = self.n_c_heatmap_output_layer1(n_c_relation_output)
-        p_c_heatmap_output = self.p_c_heatmap_output_layer2(p_c_relation_output)
-        n_c_heatmap_output = self.n_c_heatmap_output_layer2(n_c_relation_output)        
-        p_c_heatmap_output = self.p_c_heatmap_output_layer3(p_c_relation_output)
-        n_c_heatmap_output = self.n_c_heatmap_output_layer3(n_c_relation_output)        
+        p_c_heatmap_output = self.p_c_heatmap_output_layer2(p_c_heatmap_output)
+        n_c_heatmap_output = self.n_c_heatmap_output_layer2(n_c_heatmap_output)        
+        p_c_heatmap_output = self.p_c_heatmap_output_layer3(p_c_heatmap_output)
+        n_c_heatmap_output = self.n_c_heatmap_output_layer3(n_c_heatmap_output)        
         #print(p_c_heatmap_output.shape)
         #print(n_c_heatmap_output.shape)
 

@@ -1,0 +1,53 @@
+[36;4m2022-10-17 17:24:16[0m [96m[engine.defaults.base][0m [36mINFO: [0m=> Executor Operating Parameter Table: 
+[31m| Key                     | Value                                                                                                                                                                                    |
+|:------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Phase                   | validate                                                                                                                                                                                 |
+| Log File                | /home/jongmin2/DCPOSE_JM/output10_jm_flow_/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/log/validate-2022_10_17_17.log |
+| Checkpoint Folder       | /home/jongmin2/DCPOSE_JM/output10_jm_flow_/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/checkpoints                    |
+| Tensorboard_save_folder | /home/jongmin2/DCPOSE_JM/output10_jm_flow_/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/tensorboard                    |[0m
+[36;4m2022-10-17 17:24:17[0m [96m[datasets.zoo.posetrack.PoseTrack][0m [36mINFO: [0m=> Load bbox file from /home/jongmin2/DCPOSE_JM/DcPose_supp_files/posetrack18_precomputed_boxes/val_boxes.json
+[36;4m2022-10-17 17:24:24[0m [96m[datasets.zoo.posetrack.PoseTrack][0m [36mINFO: [0m=> Boxes Info Table: 
+[35m| Total boxes   | Filter threshold   | Remaining boxes   |
+|:--------------|:-------------------|:------------------|
+| 500546        | 0.2                | 190538            |[0m
+[36;4m2022-10-17 17:24:24[0m [96m[datasets.zoo.base][0m [36mINFO: [0m=> Datasets Parameters Info : 
+[35m| Dataset parameters   | Value   |
+|:---------------------|:--------|
+| BBOX_ENLARGE_FACTOR  | 1.25    |
+| NUM_JOINTS           | 17      |
+|                      |         |[0m
+[36;4m2022-10-17 17:24:24[0m [96m[datasets.zoo.base][0m [36mINFO: [0m=> Datasets Samples Info : 
+[35m| Dataset_Name   | Num of samples   |
+|:---------------|:-----------------|
+| PoseTrack18    | 190538           |[0m
+[36;4m2022-10-17 17:24:24[0m [96m[posetimation.zoo.DcPose.dcpose_rsn][0m [36mINFO: [0m###### MODEL DcPose_RSN Hyper Parameters ##########
+[36;4m2022-10-17 17:24:24[0m [96m[posetimation.zoo.DcPose.dcpose_rsn][0m [36mINFO: [0mOrderedDict([('k', 3), ('prf_basicblock_num', 2), ('prf_inner_ch', 34), ('ptm_basicblock_num', 1), ('ptm_inner_ch', 17), ('prf_ptm_combine_basicblock_num', 2), ('prf_ptm_combine_inner_ch', 64)])
+[36;4m2022-10-17 17:24:29[0m [96m[engine.defaults.evaluator][0m [36mINFO: [0m=> loading checkpoints from /home/jongmin2/DCPOSE_JM/output10_jm_flow_/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/checkpoints/epoch_35_state.pth
+loading annotations into memory...
+Done (t=1.10s)
+creating index...
+index created!
+[36;4m2022-10-17 17:24:31[0m [96m[engine.core.function][0m [36mINFO: [0m=> Vis Output Dir : /home/jongmin2/DCPOSE_JM/output10_jm_flow_/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/model_35/validate/use_precomputed_box/vis
+[36;4m2022-10-17 17:24:31[0m [96m[engine.core.function][0m [36mINFO: [0m=> Result Output Dir : /home/jongmin2/DCPOSE_JM/output10_jm_flow_/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/model_35/validate/use_precomputed_box/prediction_result
+[36;4m2022-10-17 17:26:33[0m [96m[engine.core.function][0m [36mINFO: [0mvalidate: [0/745]	Time 122.200 (122.200)	Data 101.051s (101.051s)	Accuracy 0.000 (0.000)
+[36;4m2022-10-17 17:37:18[0m [96m[engine.core.function][0m [36mINFO: [0mvalidate: [100/745]	Time 6.401 (7.595)	Data 0.272s (1.297s)	Accuracy 0.000 (0.004)
+[36;4m2022-10-17 17:47:46[0m [96m[engine.core.function][0m [36mINFO: [0mvalidate: [200/745]	Time 6.023 (6.940)	Data 0.286s (0.795s)	Accuracy 0.000 (0.003)
+[36;4m2022-10-17 17:58:13[0m [96m[engine.core.function][0m [36mINFO: [0mvalidate: [300/745]	Time 6.402 (6.718)	Data 0.285s (0.627s)	Accuracy 0.000 (0.003)
+[36;4m2022-10-17 18:08:43[0m [96m[engine.core.function][0m [36mINFO: [0mvalidate: [400/745]	Time 6.260 (6.615)	Data 0.268s (0.543s)	Accuracy 0.000 (0.003)
+[36;4m2022-10-17 18:19:11[0m [96m[engine.core.function][0m [36mINFO: [0mvalidate: [500/745]	Time 6.342 (6.549)	Data 0.292s (0.491s)	Accuracy 0.000 (0.004)
+[36;4m2022-10-17 18:29:43[0m [96m[engine.core.function][0m [36mINFO: [0mvalidate: [600/745]	Time 6.444 (6.510)	Data 0.496s (0.459s)	Accuracy 0.000 (0.004)
+[36;4m2022-10-17 18:40:16[0m [96m[engine.core.function][0m [36mINFO: [0mvalidate: [700/745]	Time 6.329 (6.484)	Data 0.296s (0.438s)	Accuracy 0.000 (0.003)
+[36;4m2022-10-17 18:44:39[0m [96m[engine.core.function][0m [36mINFO: [0mvalidate: [744/745]	Time 2.940 (6.455)	Data 0.262s (0.429s)	Accuracy 0.000 (0.003)
+[36;4m2022-10-17 18:44:39[0m [96m[engine.core.function][0m [36mINFO: [0m########################################
+[36;4m2022-10-17 18:44:39[0m [96m[engine.core.function][0m [36mINFO: [0mDCPose_Network_Model_RSN
+[36;4m2022-10-17 18:44:39[0m [96m[datasets.zoo.posetrack.PoseTrack][0m [36mINFO: [0m=> Start evaluate
+[36;4m2022-10-17 18:45:03[0m [96m[datasets.zoo.posetrack.PoseTrack][0m [36mINFO: [0m=> saving files for evaluation
+[36;4m2022-10-17 18:47:25[0m [96m[datasets.zoo.posetrack.posetrack_utils.poseval.py.evaluate_simple][0m [36mINFO: [0m# gt frames  : 8923
+[36;4m2022-10-17 18:47:25[0m [96m[datasets.zoo.posetrack.posetrack_utils.poseval.py.evaluate_simple][0m [36mINFO: [0m# pred frames: 8923
+[36;4m2022-10-17 18:49:16[0m [96m[datasets.zoo.posetrack.posetrack_utils.poseval.py.evaluate_simple][0m [36mINFO: [0mAverage Precision (AP) metric:
+[36;4m2022-10-17 18:49:19[0m [96m[engine.core.base][0m [36mINFO: [0m=> Result Table: 
+[35m| Model      | Head    | Shoulder   | Elbow   | Wrist   | Hip     | Knee   | Ankle   | Mean   |
+|:-----------|:--------|:-----------|:--------|:--------|:--------|:-------|:--------|:-------|
+| DcPose_RSN | 77.5481 | 84.1326    | 72.7123 | 55.7431 | 68.0567 | 70.047 | 45.1238 | 68.285 |[0m
+& Head & Shou & Elb  & Wri  & Hip  & Knee & Ankl & Total\\
+& 77.5 & 84.1 & 72.7 & 55.7 & 68.1 & 70.0 & 45.1 & 68.3 \\
