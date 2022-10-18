@@ -336,18 +336,18 @@ class DcPose_RSN(BaseModel):
         #                                                    prf_ptm_combine_basicblock_num)
 
 
-        self.flowlayer_input_layer_pre = CHAIN_RSB_BLOCKS(48, 48, 3)
-        self.flowlayer_input_layer_next = CHAIN_RSB_BLOCKS(48, 48, 3)
-        self.flowlayer_input_layer_current = CHAIN_RSB_BLOCKS(48, 48, 3)
+        self.flowlayer_input_layer_pre = CHAIN_RSB_BLOCKS(48, 48, 4)
+        self.flowlayer_input_layer_next = CHAIN_RSB_BLOCKS(48, 48, 4)
+        self.flowlayer_input_layer_current = CHAIN_RSB_BLOCKS(48, 48, 4)
 
-        self.p_c_heatmap_output_layer1 = CHAIN_RSB_BLOCKS(161, 96, 2)
-        self.n_c_heatmap_output_layer1 = CHAIN_RSB_BLOCKS(161, 96, 2)
+        self.p_c_heatmap_output_layer1 = CHAIN_RSB_BLOCKS(161, 96, 3)
+        self.n_c_heatmap_output_layer1 = CHAIN_RSB_BLOCKS(161, 96, 3)
         
-        self.p_c_heatmap_output_layer2 = CHAIN_RSB_BLOCKS(96, 48, 2)
-        self.n_c_heatmap_output_layer2 = CHAIN_RSB_BLOCKS(96, 48, 2)
+        self.p_c_heatmap_output_layer2 = CHAIN_RSB_BLOCKS(96, 48, 3)
+        self.n_c_heatmap_output_layer2 = CHAIN_RSB_BLOCKS(96, 48, 3)
         
-        self.p_c_heatmap_output_layer3 = CHAIN_RSB_BLOCKS(48, 17, 2)
-        self.n_c_heatmap_output_layer3 = CHAIN_RSB_BLOCKS(48, 17, 2)
+        self.p_c_heatmap_output_layer3 = CHAIN_RSB_BLOCKS(48, 17, 3)
+        self.n_c_heatmap_output_layer3 = CHAIN_RSB_BLOCKS(48, 17, 3)
 
 
         ###### motion_module #######
