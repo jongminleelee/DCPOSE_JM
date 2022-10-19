@@ -482,7 +482,7 @@ class DcPose_RSN(BaseModel):
         
 
         vivit_heatmaps = self.conv1(vivit_heatmaps)
-        vivit_heatmaps = self.conv1(vivit_heatmaps)
+        vivit_heatmaps = self.conv2(vivit_heatmaps)
         vivit_heatmaps = self.final_layer(vivit_heatmaps)
           
         '''          
