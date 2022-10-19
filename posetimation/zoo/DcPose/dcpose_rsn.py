@@ -371,12 +371,13 @@ class DcPose_RSN(BaseModel):
         #self.p_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(self.temporal_encoding_dim * (self.scale_arch[-1] + 1), cfg['MODEL']['NUM_JOINTS'], 3)
         #self.n_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(self.temporal_encoding_dim * (self.scale_arch[-1] + 1), cfg['MODEL']['NUM_JOINTS'], 3)
 
-        self.conv1 = nn.Conv2d(self.temporal_encoding_dim * (self.scale_arch[-1] + 1), self.num_joints, kernel_size=3, padding=1, groups=self.num_joints)
+        self.conv1 = nn.Conv2d(self.temporal_encoding_dim * (self.scale_arch[-1] + 1), self.num_joints*4, kernel_size=3, padding=1, groups=self.num_joints)
         #self.conv2 = nn.Conv2d(self.num_joints * 3, ptm_inner_ch, kernel_size=3, padding=1, groups=self.num_joints)
-
+        self.conv2 = CHAIN_RSB_BLOCKS(self.num_joints*4, self.num_joints*2, 1)
+        self.final_layer = nn.Conv2d(self.num_joints*2, self.num_joints, 3, 1, 1)
         # ============================================================================================================================================
 
-
+        '''
         ####### PCN #######
         self.offsets_list, self.masks_list, self.modulated_deform_conv_list = [], [], []
         for d_index, dilation in enumerate(self.deformable_conv_dilations):
@@ -391,7 +392,7 @@ class DcPose_RSN(BaseModel):
         self.offsets_list = nn.ModuleList(self.offsets_list)
         self.masks_list = nn.ModuleList(self.masks_list)
         self.modulated_deform_conv_list = nn.ModuleList(self.modulated_deform_conv_list)
-
+        '''
     def _offset_conv(self, nc, kh, kw, dd, dg):
         conv = nn.Conv2d(nc, dg * 2 * kh * kw, kernel_size=(3, 3), stride=(1, 1), dilation=(dd, dd), padding=(1 * dd, 1 * dd), bias=False)
         return conv
@@ -481,7 +482,8 @@ class DcPose_RSN(BaseModel):
         
 
         vivit_heatmaps = self.conv1(vivit_heatmaps)
-        
+        vivit_heatmaps = self.conv1(vivit_heatmaps)
+        vivit_heatmaps = self.final_layer(vivit_heatmaps)
           
         '''          
         # Difference A and Difference B
@@ -533,7 +535,7 @@ class DcPose_RSN(BaseModel):
         # 해당 위 layer는 3*3 stack layer 부분이다. 
         # 이 때 왜? ptm의 결과를 
         support_heatmaps = self.support_temporal_fuse(support_heatmaps).cuda()
-        '''
+        
         # 3*3 conv stack conv 처리 !!
         prf_ptm_combine_featuremaps = self.offset_mask_combine_conv_JM(torch.cat([vivit_heatmaps,sum_heatmaps], dim=1))
         #prf_ptm_combine_featuremaps = self.offset_mask_combine_conv(torch.cat([dif_heatmaps, support_heatmaps], dim=1))
@@ -596,9 +598,10 @@ class DcPose_RSN(BaseModel):
         # jongmin add code    
         # output_heatmaps : motion gt와 비교
         # output_heatmaps2 : origin gt와 비교
+        '''
         
         # p->c, n->c 관련된 output도 추가한다. 각각 gt와 비교해서 loss를 구한다.
-        return output_heatmaps
+        return vivit_heatmaps
 
     def init_weights(self):
         logger = logging.getLogger(__name__)
