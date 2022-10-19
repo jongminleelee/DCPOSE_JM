@@ -10,6 +10,7 @@ import torch.nn.functional as F
 import logging
 from collections import OrderedDict
 
+from .ConvVideoTransformer import ConvTransformer
 from ..base import BaseModel
 
 from thirdparty.deform_conv import DeformConv, ModulatedDeformConv
@@ -329,9 +330,9 @@ class DcPose_RSN(BaseModel):
         #prf_ptm_combine_ch = prf_inner_ch + ptm_inner_ch + 34
         
         #prf_ptm_combine_ch = ptm_inner_ch + 17
-        prf_ptm_combine_ch = ptm_inner_ch
+        prf_ptm_combine_ch = ptm_inner_ch*5
 
-        self.offset_mask_combine_conv = CHAIN_RSB_BLOCKS(prf_ptm_combine_ch, prf_ptm_combine_inner_ch, prf_ptm_combine_basicblock_num)
+        self.offset_mask_combine_conv_JM = CHAIN_RSB_BLOCKS(prf_ptm_combine_ch, prf_ptm_combine_inner_ch, prf_ptm_combine_basicblock_num)
         # self.offset_mask_combine_conv = ChainOfBasicBlocks(prf_ptm_combine_ch, prf_ptm_combine_inner_ch, 1, 1, 2,
         #                                                    prf_ptm_combine_basicblock_num)
 
@@ -345,6 +346,35 @@ class DcPose_RSN(BaseModel):
         
         self.motion_layer2 = FlowLayer(48,8)
 
+        ####### ViVIT #######
+        # embd 차원 수를 맞추기 위해서 frame수를 짝수로 만들어야한다.
+        self.num_frames = 4
+        self.patch_size = 1
+
+        # cfg.MODEL.HEATMAP_SIZE
+        self.pe_w, self.pe_h = 72, 96
+
+        # 6개 layer
+        self.scale_arch = (0, 6, 2)
+
+        self.patch_dim = self.num_joints * self.patch_size ** 2
+        self.num_patches = (self.pe_h // self.patch_size) * (self.pe_w // self.patch_size)
+        self.max_seq_len = self.num_patches
+
+        # self.temporal_encoding_dim = self.patch_dim * self.num_frames
+        self.temporal_encoding_dim = 68 # 17*4 (pre,next,current,sum)
+        self.temporal_encoder1 = ConvTransformer(self.temporal_encoding_dim, self.temporal_encoding_dim,
+                                                 n_head=2, n_embd_ks=3,
+                                                 max_len=self.num_patches, arch=self.scale_arch,
+                                                 proj_pdrop=0.1, path_pdrop=0.1, h=self.pe_h)
+
+        #self.p_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(self.temporal_encoding_dim * (self.scale_arch[-1] + 1), cfg['MODEL']['NUM_JOINTS'], 3)
+        #self.n_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(self.temporal_encoding_dim * (self.scale_arch[-1] + 1), cfg['MODEL']['NUM_JOINTS'], 3)
+
+        self.conv1 = nn.Conv2d(self.num_joints * 4, self.num_joints * 4, kernel_size=3, padding=1, groups=self.num_joints)
+        #self.conv2 = nn.Conv2d(self.num_joints * 3, ptm_inner_ch, kernel_size=3, padding=1, groups=self.num_joints)
+
+        # ============================================================================================================================================
 
 
         ####### PCN #######
@@ -434,10 +464,23 @@ class DcPose_RSN(BaseModel):
         
         #print(p_c_heatmap_output.shape)
         #print(n_c_heatmap_output.shape)
-
+        
+        
         # jongmin 코드 기반으로 작업된 부분이다. 
-        support_heatmaps = torch.cat([current_rough_heatmaps,p_c_heatmap_output*0.5,n_c_heatmap_output*0.5], dim=1)
-        support_heatmaps = self.support_temporal_fuse(support_heatmaps).cuda()       
+        sum_heatmaps = torch.cat([0.25*p_c_heatmap_output + 0.25*n_c_heatmap_output + 0.5*current_rough_heatmaps], dim=1)
+        sum_heatmaps = self.support_temporal_fuse(sum_heatmaps).cuda()       
+        
+        ### VIVIT ###
+        vivit_heatmaps = torch.stack((p_c_heatmap_output, n_c_heatmap_output, current_rough_heatmaps, sum_heatmaps),
+                                    dim=2).flatten(start_dim=1, end_dim=2)
+        vivit_heatmaps = self.temporal_encoder1(vivit_heatmaps)
+        vivit_heatmaps = torch.stack([s for s in vivit_heatmaps],
+                                    dim=1).contiguous().view(true_batch_size,
+                                                             self.temporal_encoding_dim * (self.scale_arch[-1] + 1),
+                                                             self.pe_h, self.pe_w)
+        
+
+        vivit_heatmaps = self.conv1(vivit_heatmaps)
         
           
         '''          
@@ -492,7 +535,7 @@ class DcPose_RSN(BaseModel):
         support_heatmaps = self.support_temporal_fuse(support_heatmaps).cuda()
         '''
         # 3*3 conv stack conv 처리 !!
-        prf_ptm_combine_featuremaps = self.offset_mask_combine_conv(torch.cat([support_heatmaps], dim=1))
+        prf_ptm_combine_featuremaps = self.offset_mask_combine_conv_JM(torch.cat([vivit_heatmaps,sum_heatmaps], dim=1))
         #prf_ptm_combine_featuremaps = self.offset_mask_combine_conv(torch.cat([dif_heatmaps, support_heatmaps], dim=1))
         
         # jongmin - add code
@@ -512,7 +555,7 @@ class DcPose_RSN(BaseModel):
             offsets = self.offsets_list[d_index](prf_ptm_combine_featuremaps)
             masks = self.masks_list[d_index](prf_ptm_combine_featuremaps)
 
-            warped_heatmaps = self.modulated_deform_conv_list[d_index](support_heatmaps, offsets, masks)
+            warped_heatmaps = self.modulated_deform_conv_list[d_index](sum_heatmaps, offsets, masks)
             warped_heatmaps_list.append(warped_heatmaps)
 
 
@@ -555,7 +598,7 @@ class DcPose_RSN(BaseModel):
         # output_heatmaps2 : origin gt와 비교
         
         # p->c, n->c 관련된 output도 추가한다. 각각 gt와 비교해서 loss를 구한다.
-        return output_heatmaps, p_c_heatmap_output, n_c_heatmap_output
+        return output_heatmaps
 
     def init_weights(self):
         logger = logging.getLogger(__name__)
@@ -601,6 +644,20 @@ class DcPose_RSN(BaseModel):
                     if name in ['weights']:
                         nn.init.normal_(module.weight, std=0.001)
 
+        ## ===============================================================
+        ## 앞 과정은 정확하게 말하면 weight값이 없을 때, 초기화가 되는 과정이다. 
+        ## 아래 과정을 통해서.... 
+
+        # name = layer name !! 
+        # _ = weight value !!  -> param.shape ,  param.requires_grad
+        parameters_names = set()
+        for name, _ in self.named_parameters():
+            parameters_names.add(name)
+
+        buffers_names = set()
+        for name, _ in self.named_buffers():
+            buffers_names.add(name)
+
         if os.path.isfile(self.pretrained):
             pretrained_state_dict = torch.load(self.pretrained)
             if 'state_dict' in pretrained_state_dict.keys():
@@ -609,19 +666,27 @@ class DcPose_RSN(BaseModel):
 
             need_init_state_dict = {}
             for name, m in pretrained_state_dict.items():
-                if name.split('.')[0] in self.pretrained_layers \
-                        or self.pretrained_layers[0] is '*':
+                
+                # self.pretrained_layers => * 이 정의되어 있음.!!
+                if name.split('.')[0] in self.pretrained_layers or self.pretrained_layers[0] is '*':
                     layer_name = name.split('.')[0]
                     if layer_name in rough_pose_estimation_name_set:
                         need_init_state_dict[name] = m
                     else:
                         # 为了适应原本hrnet得预训练网络
+                        # 이 과정이 있는 이유는 ... coco로 학습된 pretrained 모델을 불러오기 때문에 
+                        # 해당 과정에서 layer이름에 rough_pose_estimation_net가 앞에 더 붙게 된다. 
+                        # 즉 이 부분을 보완하기 위해 작업이 된 것이라고 보면 좋다. 
                         new_layer_name = "rough_pose_estimation_net.{}".format(layer_name)
                         if new_layer_name in rough_pose_estimation_name_set:
                             parameter_name = "rough_pose_estimation_net.{}".format(name)
                             need_init_state_dict[parameter_name] = m
-            # TODO pretrained from posewarper not test
-            self.load_state_dict(need_init_state_dict, strict=False)
+                            
+                # if name.split('.')[0] in self.pretrained_layers or self.pretrained_layers[0] is '*':
+                if name in parameters_names or name in buffers_names:
+                        # logger.info('=> init {} from {}'.format(name, pretrained))
+                        print('=> init {}'.format(name))
+                        need_init_state_dict[name] = m  
         elif self.pretrained:
             logger.error('=> please download pre-trained models first!')
             raise ValueError('{} is not exist!'.format(self.pretrained))
