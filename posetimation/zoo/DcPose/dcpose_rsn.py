@@ -317,7 +317,7 @@ class DcPose_RSN(BaseModel):
         ####### PTM #######
         if ptm_basicblock_num > 0:
 
-            self.support_temporal_fuse = CHAIN_RSB_BLOCKS(self.num_joints * 3, ptm_inner_ch, ptm_basicblock_num,
+            self.support_temporal_fuse = CHAIN_RSB_BLOCKS(self.num_joints*3, ptm_inner_ch, ptm_basicblock_num,
                                                           )
 
             # self.support_temporal_fuse = ChainOfBasicBlocks(self.num_joints * 3, ptm_inner_ch, 1, 1, 2,
@@ -467,7 +467,7 @@ class DcPose_RSN(BaseModel):
         
         
         # jongmin 코드 기반으로 작업된 부분이다. 
-        sum_heatmaps = torch.cat([0.25*p_c_heatmap_output + 0.25*n_c_heatmap_output + 0.5*current_rough_heatmaps], dim=1)
+        sum_heatmaps = torch.cat([0.25*p_c_heatmap_output,0.25*n_c_heatmap_output,0.5*current_rough_heatmaps], dim=1)
         sum_heatmaps = self.support_temporal_fuse(sum_heatmaps).cuda()       
         
         ### VIVIT ###
