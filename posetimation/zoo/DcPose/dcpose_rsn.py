@@ -330,7 +330,7 @@ class DcPose_RSN(BaseModel):
         #prf_ptm_combine_ch = prf_inner_ch + ptm_inner_ch + 34
         
         #prf_ptm_combine_ch = ptm_inner_ch + 17
-        prf_ptm_combine_ch = ptm_inner_ch*5
+        prf_ptm_combine_ch = ptm_inner_ch*2
 
         self.offset_mask_combine_conv_JM = CHAIN_RSB_BLOCKS(prf_ptm_combine_ch, prf_ptm_combine_inner_ch, prf_ptm_combine_basicblock_num)
         # self.offset_mask_combine_conv = ChainOfBasicBlocks(prf_ptm_combine_ch, prf_ptm_combine_inner_ch, 1, 1, 2,
@@ -371,7 +371,7 @@ class DcPose_RSN(BaseModel):
         #self.p_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(self.temporal_encoding_dim * (self.scale_arch[-1] + 1), cfg['MODEL']['NUM_JOINTS'], 3)
         #self.n_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(self.temporal_encoding_dim * (self.scale_arch[-1] + 1), cfg['MODEL']['NUM_JOINTS'], 3)
 
-        self.conv1 = nn.Conv2d(self.num_joints * 4, self.num_joints * 4, kernel_size=3, padding=1, groups=self.num_joints)
+        self.conv1 = nn.Conv2d(self.temporal_encoding_dim * (self.scale_arch[-1] + 1), self.num_joints, kernel_size=3, padding=1, groups=self.num_joints)
         #self.conv2 = nn.Conv2d(self.num_joints * 3, ptm_inner_ch, kernel_size=3, padding=1, groups=self.num_joints)
 
         # ============================================================================================================================================
