@@ -373,7 +373,7 @@ class DcPose_RSN(BaseModel):
 
         self.conv1 = nn.Conv2d(self.temporal_encoding_dim * (self.scale_arch[-1] + 1), self.num_joints*4, kernel_size=3, padding=1, groups=self.num_joints)
         #self.conv2 = nn.Conv2d(self.num_joints * 3, ptm_inner_ch, kernel_size=3, padding=1, groups=self.num_joints)
-        self.conv2 = CHAIN_RSB_BLOCKS(self.num_joints*4, self.num_joints*2, 1)
+        self.conv2 = CHAIN_RSB_BLOCKS(self.num_joints*4, self.num_joints*2, 3)
         self.final_layer = nn.Conv2d(self.num_joints*2, self.num_joints, 3, 1, 1)
         # ============================================================================================================================================
 
