@@ -337,15 +337,17 @@ class DcPose_RSN(BaseModel):
         #                                                    prf_ptm_combine_basicblock_num)
 
 
-        self.p_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
-        self.n_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
+
 
 
         ###### motion_module #######
         self.motion_layer1 = FlowLayer(48,8)
-        
         self.motion_layer2 = FlowLayer(48,8)
+        
+        self.p_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
+        self.n_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
 
+        '''
         ####### ViVIT #######
         # embd 차원 수를 맞추기 위해서 frame수를 짝수로 만들어야한다.
         self.num_frames = 4
@@ -371,13 +373,16 @@ class DcPose_RSN(BaseModel):
         #self.p_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(self.temporal_encoding_dim * (self.scale_arch[-1] + 1), cfg['MODEL']['NUM_JOINTS'], 3)
         #self.n_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(self.temporal_encoding_dim * (self.scale_arch[-1] + 1), cfg['MODEL']['NUM_JOINTS'], 3)
 
-        self.conv1 = nn.Conv2d(self.temporal_encoding_dim * (self.scale_arch[-1] + 1), self.num_joints*4, kernel_size=3, padding=1, groups=self.num_joints)
+        #self.conv1 = nn.Conv2d(self.temporal_encoding_dim * (self.scale_arch[-1] + 1), self.num_joints*4, kernel_size=3, padding=1, groups=self.num_joints)
         #self.conv2 = nn.Conv2d(self.num_joints * 3, ptm_inner_ch, kernel_size=3, padding=1, groups=self.num_joints)
-        self.conv2 = CHAIN_RSB_BLOCKS(self.num_joints*4, self.num_joints*2, 3)
-        self.final_layer = nn.Conv2d(self.num_joints*2, self.num_joints, 3, 1, 1)
+        #self.conv2 = CHAIN_RSB_BLOCKS(self.num_joints*4, self.num_joints*2, 3)
+        #self.final_layer = nn.Conv2d(self.num_joints*2, self.num_joints, 3, 1, 1)
         # ============================================================================================================================================
-
         '''
+        
+        self.conv1 = nn.Conv2d(self.num_joints*3, self.num_joints, kernel_size=3, padding=1, groups=self.num_joints)
+        self.conv2 = CHAIN_RSB_BLOCKS(self.num_joints, self.num_joints, 1)
+        
         ####### PCN #######
         self.offsets_list, self.masks_list, self.modulated_deform_conv_list = [], [], []
         for d_index, dilation in enumerate(self.deformable_conv_dilations):
@@ -392,7 +397,7 @@ class DcPose_RSN(BaseModel):
         self.offsets_list = nn.ModuleList(self.offsets_list)
         self.masks_list = nn.ModuleList(self.masks_list)
         self.modulated_deform_conv_list = nn.ModuleList(self.modulated_deform_conv_list)
-        '''
+        
     def _offset_conv(self, nc, kh, kw, dd, dg):
         conv = nn.Conv2d(nc, dg * 2 * kh * kw, kernel_size=(3, 3), stride=(1, 1), dilation=(dd, dd), padding=(1 * dd, 1 * dd), bias=False)
         return conv
@@ -466,11 +471,17 @@ class DcPose_RSN(BaseModel):
         #print(p_c_heatmap_output.shape)
         #print(n_c_heatmap_output.shape)
         
-        
+    
         # jongmin 코드 기반으로 작업된 부분이다. 
-        sum_heatmaps = torch.cat([0.25*p_c_heatmap_output,0.25*n_c_heatmap_output,0.5*current_rough_heatmaps], dim=1)
-        sum_heatmaps = self.support_temporal_fuse(sum_heatmaps).cuda()       
+        sum_heatmaps = p_c_heatmap_output+n_c_heatmap_output+current_rough_heatmaps
+        sum_heatmaps = self.support_temporal_fuse(sum_heatmaps).cuda()     
         
+        support_heatmap = torch.cat([p_c_heatmap_output,n_c_heatmap_output,current_rough_heatmaps], dim=1)
+        support_heatmap = self.conv1(support_heatmap)
+        support_heatmap = self.conv2(support_heatmap)
+          
+        
+        '''
         ### VIVIT ###
         vivit_heatmaps = torch.stack((p_c_heatmap_output, n_c_heatmap_output, current_rough_heatmaps, sum_heatmaps),
                                     dim=2).flatten(start_dim=1, end_dim=2)
@@ -484,7 +495,10 @@ class DcPose_RSN(BaseModel):
         vivit_heatmaps = self.conv1(vivit_heatmaps)
         vivit_heatmaps = self.conv2(vivit_heatmaps)
         vivit_heatmaps = self.final_layer(vivit_heatmaps)
-          
+        '''  
+        
+        
+         
         '''          
         # Difference A and Difference B
         diff_A = current_rough_heatmaps - previous_rough_heatmaps
@@ -535,9 +549,10 @@ class DcPose_RSN(BaseModel):
         # 해당 위 layer는 3*3 stack layer 부분이다. 
         # 이 때 왜? ptm의 결과를 
         support_heatmaps = self.support_temporal_fuse(support_heatmaps).cuda()
+        '''
         
         # 3*3 conv stack conv 처리 !!
-        prf_ptm_combine_featuremaps = self.offset_mask_combine_conv_JM(torch.cat([vivit_heatmaps,sum_heatmaps], dim=1))
+        prf_ptm_combine_featuremaps = self.offset_mask_combine_conv_JM(torch.cat([support_heatmap,sum_heatmaps], dim=1))
         #prf_ptm_combine_featuremaps = self.offset_mask_combine_conv(torch.cat([dif_heatmaps, support_heatmaps], dim=1))
         
         # jongmin - add code
@@ -598,10 +613,10 @@ class DcPose_RSN(BaseModel):
         # jongmin add code    
         # output_heatmaps : motion gt와 비교
         # output_heatmaps2 : origin gt와 비교
-        '''
+        
         
         # p->c, n->c 관련된 output도 추가한다. 각각 gt와 비교해서 loss를 구한다.
-        return vivit_heatmaps
+        return output_heatmaps
 
     def init_weights(self):
         logger = logging.getLogger(__name__)
