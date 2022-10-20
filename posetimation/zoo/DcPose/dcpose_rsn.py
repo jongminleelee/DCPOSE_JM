@@ -340,6 +340,9 @@ class DcPose_RSN(BaseModel):
         self.p_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
         self.n_c_heatmap_output_layer = CHAIN_RSB_BLOCKS(161, 17, 3)
 
+        self.current_match_layer1 = nn.Conv2d(self.num_joints, self.num_joints, kernel_size=1,padding=0, bias=False)
+        self.current_match_layer2 = nn.Conv2d(self.num_joints, self.num_joints, kernel_size=1,padding=0, bias=False)
+
 
         ###### motion_module #######
         self.motion_layer1 = FlowLayer(48,8)
@@ -462,12 +465,15 @@ class DcPose_RSN(BaseModel):
         p_c_heatmap_output = self.p_c_heatmap_output_layer(p_c_relation_output)
         n_c_heatmap_output = self.n_c_heatmap_output_layer(n_c_relation_output)
         
+        current_rough_heatmaps = self.current_match_layer1(current_rough_heatmaps)
+        current_rough_heatmaps = self.current_match_layer2(current_rough_heatmaps)
+        
         #print(p_c_heatmap_output.shape)
         #print(n_c_heatmap_output.shape)
         
         
         # jongmin 코드 기반으로 작업된 부분이다. 
-        sum_heatmaps = torch.cat([0.25*p_c_heatmap_output,0.25*n_c_heatmap_output,0.5*current_rough_heatmaps], dim=1)
+        sum_heatmaps = torch.cat([p_c_heatmap_output,n_c_heatmap_output,current_rough_heatmaps], dim=1)
         sum_heatmaps = self.support_temporal_fuse(sum_heatmaps).cuda()       
         
         ### VIVIT ###
@@ -567,8 +573,8 @@ class DcPose_RSN(BaseModel):
             for warper_heatmaps in warped_heatmaps_list[1:]:
                 output_heatmaps += warper_weight * warper_heatmaps
 
-        else:
-            output_heatmaps = self.deformable_aggregation_conv(torch.cat(warped_heatmaps_list, dim=1))
+        #else:
+        #    output_heatmaps = self.deformable_aggregation_conv(torch.cat(warped_heatmaps_list, dim=1))
             # elif self.deformable_aggregation_type == "conv":
 
         # ----------------------------------------------------------------------
@@ -598,7 +604,7 @@ class DcPose_RSN(BaseModel):
         # output_heatmaps2 : origin gt와 비교
         
         # p->c, n->c 관련된 output도 추가한다. 각각 gt와 비교해서 loss를 구한다.
-        return output_heatmaps
+        return output_heatmaps, p_c_heatmap_output, n_c_heatmap_output, current_rough_heatmaps
 
     def init_weights(self):
         logger = logging.getLogger(__name__)
@@ -687,6 +693,7 @@ class DcPose_RSN(BaseModel):
                         # logger.info('=> init {} from {}'.format(name, pretrained))
                         print('=> init {}'.format(name))
                         need_init_state_dict[name] = m  
+            self.load_state_dict(need_init_state_dict, strict=False)
         elif self.pretrained:
             logger.error('=> please download pre-trained models first!')
             raise ValueError('{} is not exist!'.format(self.pretrained))
