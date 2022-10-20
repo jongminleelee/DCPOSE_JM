@@ -312,7 +312,7 @@ class PoseTrack(VideoDataset):
 
         # 해당 return값에 따라 .. engine/function.py 부분 수정이 필요함.!!
 
-        return input_x, input_prev, input_next, target_heatmaps, target_heatmaps_weight, meta,
+        return input_x, input_prev_2, input_next_2, target_heatmaps, target_heatmaps_weight, meta,
 
     def _get_single_frame(self, data_item):
         raise NotImplementedError

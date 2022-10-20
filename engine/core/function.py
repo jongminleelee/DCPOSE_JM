@@ -100,7 +100,7 @@ class CommonFunction(BaseFunction):
                 for sub_outputs in outputs[1:]:
                     #origin gt loss calc
                     #print("p=>c, n=>c heatmap based ..............")
-                    loss += 0.1*self.criterion(sub_outputs, target_heatmaps, target_heatmaps_weight)
+                    loss += self.criterion(sub_outputs, target_heatmaps, target_heatmaps_weight)
             else:
                 #print("inference : ")
                 pred_heatmaps = outputs
