@@ -336,7 +336,7 @@ class DcPose_RSN(BaseModel):
         # self.offset_mask_combine_conv = ChainOfBasicBlocks(prf_ptm_combine_ch, prf_ptm_combine_inner_ch, 1, 1, 2,
         #                                                    prf_ptm_combine_basicblock_num)
 
-
+        self.sum_heatmaps_layer = CHAIN_RSB_BLOCKS(self.num_joints, self.num_joints, 1)
 
 
 
@@ -474,7 +474,8 @@ class DcPose_RSN(BaseModel):
     
         # jongmin 코드 기반으로 작업된 부분이다. 
         sum_heatmaps = p_c_heatmap_output+n_c_heatmap_output+current_rough_heatmaps
-        sum_heatmaps = self.support_temporal_fuse(sum_heatmaps).cuda()     
+        sum_heatmaps = self.sum_heatmaps_layer(sum_heatmaps)
+        #sum_heatmaps = self.support_temporal_fuse(sum_heatmaps).cuda()     
         
         support_heatmap = torch.cat([p_c_heatmap_output,n_c_heatmap_output,current_rough_heatmaps], dim=1)
         support_heatmap = self.conv1(support_heatmap)
