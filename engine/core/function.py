@@ -55,6 +55,10 @@ class CommonFunction(BaseFunction):
         data_time = AverageMeter()
         losses = AverageMeter()
         acc = AverageMeter()
+        
+        acc2 = AverageMeter()
+        acc3 = AverageMeter()
+        
         # switch to train mode
         model.train()
 
@@ -85,6 +89,9 @@ class CommonFunction(BaseFunction):
 
             if isinstance(outputs, list) or isinstance(outputs, tuple):
                 pred_heatmaps = outputs[0]
+                sub1_heatmaps = outputs[1]
+                sub2_heatmaps = outputs[2]
+                
                 #motion gt loss calc
                 #print("motion gt loss calc")
                 loss = self.criterion(pred_heatmaps, target_heatmaps, target_heatmaps_weight)
@@ -108,6 +115,12 @@ class CommonFunction(BaseFunction):
 
             _, avg_acc, cnt, _ = accuracy(pred_heatmaps.detach().cpu().numpy(), target_heatmaps.detach().cpu().numpy())
             acc.update(avg_acc, cnt)
+            
+            _, avg_acc2, cnt2, _ = accuracy(sub1_heatmaps.detach().cpu().numpy(), target_heatmaps.detach().cpu().numpy())
+            acc2.update(avg_acc2, cnt2)
+            
+            _, avg_acc3, cnt3, _ = accuracy(sub2_heatmaps.detach().cpu().numpy(), target_heatmaps.detach().cpu().numpy())
+            acc3.update(avg_acc3, cnt3)
 
             # measure elapsed time
             batch_time.update(time.time() - end)
@@ -119,9 +132,11 @@ class CommonFunction(BaseFunction):
                       'Speed {speed:.1f} samples/s\t' \
                       'Data {data_time.val:.3f}s ({data_time.avg:.3f}s)\t' \
                       'Loss {loss.val:.5f} ({loss.avg:.5f})\t' \
-                      'Accuracy {acc.val:.3f} ({acc.avg:.3f})\t'.format(epoch, iter_step, self.max_iter_num, batch_time=batch_time,
+                      'Accuracy {acc.val:.3f} ({acc.avg:.3f})\t'\
+                      'Accuracy {acc2.val:.3f} ({acc2.avg:.3f})\t'\
+                      'Accuracy {acc3.val:.3f} ({acc3.avg:.3f})\t'.format(epoch, iter_step, self.max_iter_num, batch_time=batch_time,
                                                                         speed=input_x.size(0) / batch_time.val,
-                                                                        data_time=data_time, loss=losses, acc=acc)
+                                                                        data_time=data_time, loss=losses, acc=acc, acc2=acc2, acc3=acc3)
 
                 logger.info(msg)
 

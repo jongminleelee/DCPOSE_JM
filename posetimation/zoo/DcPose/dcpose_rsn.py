@@ -617,7 +617,7 @@ class DcPose_RSN(BaseModel):
         
         
         # p->c, n->c 관련된 output도 추가한다. 각각 gt와 비교해서 loss를 구한다.
-        return output_heatmaps
+        return output_heatmaps, p_c_heatmap_output, n_c_heatmap_output
 
     def init_weights(self):
         logger = logging.getLogger(__name__)
@@ -706,6 +706,7 @@ class DcPose_RSN(BaseModel):
                         # logger.info('=> init {} from {}'.format(name, pretrained))
                         print('=> init {}'.format(name))
                         need_init_state_dict[name] = m  
+            self.load_state_dict(need_init_state_dict, strict=False)
         elif self.pretrained:
             logger.error('=> please download pre-trained models first!')
             raise ValueError('{} is not exist!'.format(self.pretrained))
