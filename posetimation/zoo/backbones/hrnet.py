@@ -170,6 +170,12 @@ class HRNet(BaseModel):
             parameters = module.parameters()
             for parameter in parameters:
                 parameter.requires_grad = False
+            parameters = self.stage4.parameters()
+            for parameter in parameters:
+                parameter.requires_grad = True
+            parameters = self.final_layer.parameters()
+            for parameter in parameters:
+                parameter.requires_grad = True
 
     def _make_stage(self, layer_config, num_inchannels,
                     multi_scale_output=True):
