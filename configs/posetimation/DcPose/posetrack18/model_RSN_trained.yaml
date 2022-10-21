@@ -41,10 +41,10 @@ TRAIN:
   BATCH_SIZE_PER_GPU: 64
 VAL:
   BATCH_SIZE_PER_GPU: 128
-  MODEL_FILE: ".output/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/checkpoints/epoch_10_state.pth"
+  MODEL_FILE: "./output/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/checkpoints/epoch_10_state.pth"
 TEST:
   BATCH_SIZE_PER_GPU: 128
-  MODEL_FILE: ".output/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/checkpoints/epoch_10_state.pth"
+  MODEL_FILE: "./output/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/checkpoints/epoch_10_state.pth"
 DEBUG:
   VIS_SKELETON: false
   VIS_BBOX: false
