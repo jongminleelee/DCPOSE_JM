@@ -35,7 +35,7 @@ LOSS:
 TRAIN:
   AUTO_RESUME: true
   SAVE_MODEL_PER_EPOCH: 1
-  BATCH_SIZE_PER_GPU: 24
+  BATCH_SIZE_PER_GPU: 32
 VAL:
   BATCH_SIZE_PER_GPU: 128
   MODEL_FILE: "/home/jongmin2/DCPOSE_JM/output10_jm_flow_/PE/DcPose/DCPose_Network_Model_RSN/PoseTrack18/chPRF_34_nPRF_2_chPTM_17_nPTM_1_chComb_64_nComb_2_D_3,6,9,12,15/checkpoints/epoch_35_state.pth"
