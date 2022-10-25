@@ -22,7 +22,7 @@ MODEL:
   NUM_JOINTS: 17
   #PRETRAINED: "./DcPose_supp_files/pretrained_models/pretrained_.pth"
   #PRETRAINED: "./DcPose_supp_files/pretrained_models/pretrained_coco_model.pth"
-  PRETRAINED: "./pretrained_3frame.pth"
+  PRETRAINED: "./pretrained_posetrack_stage4.pth"
   TARGET_TYPE: gaussian
   IMAGE_SIZE:
     - 288

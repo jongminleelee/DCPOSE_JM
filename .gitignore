@@ -15,4 +15,6 @@
 /output12
 /output13
 /output14
+/DataSet
+/pretrained_posetrack_stage4.pth
 .idea

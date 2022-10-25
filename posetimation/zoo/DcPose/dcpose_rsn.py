@@ -617,7 +617,7 @@ class DcPose_RSN(BaseModel):
         
         
         # p->c, n->c 관련된 output도 추가한다. 각각 gt와 비교해서 loss를 구한다.
-        return output_heatmaps, p_c_heatmap_output, n_c_heatmap_output
+        return output_heatmaps, current_rough_heatmaps, p_c_heatmap_output, n_c_heatmap_output
 
     def init_weights(self):
         logger = logging.getLogger(__name__)
