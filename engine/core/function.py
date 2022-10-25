@@ -98,9 +98,10 @@ class CommonFunction(BaseFunction):
                 #print("motion gt loss calc")
                 loss = self.criterion(pred_heatmaps, target_heatmaps, target_heatmaps_weight)
                 for sub_outputs in outputs[1:]:
+                    pass
                     #origin gt loss calc
                     #print("p=>c, n=>c heatmap based ..............")
-                    loss += 0.5*self.criterion(sub_outputs, target_heatmaps, target_heatmaps_weight)
+                    #loss += 0.5*self.criterion(sub_outputs, target_heatmaps, target_heatmaps_weight)
             else:
                 #print("inference : ")
                 pred_heatmaps = outputs

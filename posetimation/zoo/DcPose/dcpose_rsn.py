@@ -330,9 +330,9 @@ class DcPose_RSN(BaseModel):
         #prf_ptm_combine_ch = prf_inner_ch + ptm_inner_ch + 34
         
         #prf_ptm_combine_ch = ptm_inner_ch + 17
-        prf_ptm_combine_ch = ptm_inner_ch*2
+        prf_ptm_combine_ch = ptm_inner_ch
 
-        self.offset_mask_combine_conv_JM = CHAIN_RSB_BLOCKS(prf_ptm_combine_ch, prf_ptm_combine_inner_ch, prf_ptm_combine_basicblock_num)
+        self.offset_mask_combine_conv_JM_V2 = CHAIN_RSB_BLOCKS(prf_ptm_combine_ch, prf_ptm_combine_inner_ch, prf_ptm_combine_basicblock_num)
         # self.offset_mask_combine_conv = ChainOfBasicBlocks(prf_ptm_combine_ch, prf_ptm_combine_inner_ch, 1, 1, 2,
         #                                                    prf_ptm_combine_basicblock_num)
 
@@ -381,7 +381,7 @@ class DcPose_RSN(BaseModel):
         '''
         
         self.conv1 = nn.Conv2d(self.num_joints*3, self.num_joints, kernel_size=3, padding=1, groups=self.num_joints)
-        self.conv2 = CHAIN_RSB_BLOCKS(self.num_joints, self.num_joints, 1)
+        #self.conv2 = CHAIN_RSB_BLOCKS(self.num_joints, self.num_joints, 1)
         
         ####### PCN #######
         self.offsets_list, self.masks_list, self.modulated_deform_conv_list = [], [], []
@@ -473,13 +473,13 @@ class DcPose_RSN(BaseModel):
         
     
         # jongmin 코드 기반으로 작업된 부분이다. 
-        sum_heatmaps = p_c_heatmap_output+n_c_heatmap_output+current_rough_heatmaps
+        sum_heatmaps = p_c_heatmap_output+n_c_heatmap_output+current_rough_heatmaps+previous_rough_heatmaps+next_rough_heatmaps
         sum_heatmaps = self.sum_heatmaps_layer(sum_heatmaps)
         #sum_heatmaps = self.support_temporal_fuse(sum_heatmaps).cuda()     
         
         support_heatmap = torch.cat([p_c_heatmap_output,n_c_heatmap_output,current_rough_heatmaps], dim=1)
         support_heatmap = self.conv1(support_heatmap)
-        support_heatmap = self.conv2(support_heatmap)
+        #support_heatmap = self.conv2(support_heatmap)
           
         
         '''
@@ -553,7 +553,7 @@ class DcPose_RSN(BaseModel):
         '''
         
         # 3*3 conv stack conv 처리 !!
-        prf_ptm_combine_featuremaps = self.offset_mask_combine_conv_JM(torch.cat([support_heatmap,sum_heatmaps], dim=1))
+        prf_ptm_combine_featuremaps = self.offset_mask_combine_conv_JM_V2(torch.cat([support_heatmap], dim=1))
         #prf_ptm_combine_featuremaps = self.offset_mask_combine_conv(torch.cat([dif_heatmaps, support_heatmaps], dim=1))
         
         # jongmin - add code
