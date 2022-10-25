@@ -685,7 +685,7 @@ class DcPose_RSN(BaseModel):
 
             need_init_state_dict = {}
             for name, m in pretrained_state_dict.items():
-                
+                '''
                 # self.pretrained_layers => * 이 정의되어 있음.!!
                 if name.split('.')[0] in self.pretrained_layers or self.pretrained_layers[0] is '*':
                     layer_name = name.split('.')[0]
@@ -700,7 +700,7 @@ class DcPose_RSN(BaseModel):
                         if new_layer_name in rough_pose_estimation_name_set:
                             parameter_name = "rough_pose_estimation_net.{}".format(name)
                             need_init_state_dict[parameter_name] = m
-                            
+                '''            
                 # if name.split('.')[0] in self.pretrained_layers or self.pretrained_layers[0] is '*':
                 if name in parameters_names or name in buffers_names:
                         # logger.info('=> init {} from {}'.format(name, pretrained))
