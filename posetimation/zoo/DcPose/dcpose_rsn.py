@@ -380,7 +380,7 @@ class DcPose_RSN(BaseModel):
         # ============================================================================================================================================
         '''
         
-        self.conv1 = nn.Conv2d(self.num_joints*3, self.num_joints, kernel_size=3, padding=1, groups=self.num_joints)
+        self.conv1_jm = nn.Conv2d(self.num_joints*3, self.num_joints, kernel_size=3, padding=1, groups=self.num_joints)
         #self.conv2 = CHAIN_RSB_BLOCKS(self.num_joints, self.num_joints, 1)
         
         ####### PCN #######
@@ -478,7 +478,7 @@ class DcPose_RSN(BaseModel):
         #sum_heatmaps = self.support_temporal_fuse(sum_heatmaps).cuda()     
         
         support_heatmap = torch.cat([p_c_heatmap_output,n_c_heatmap_output,current_rough_heatmaps], dim=1)
-        support_heatmap = self.conv1(support_heatmap)
+        support_heatmap = self.conv1_jm(support_heatmap)
         #support_heatmap = self.conv2(support_heatmap)
           
         
